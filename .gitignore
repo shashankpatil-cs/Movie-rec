@@ -1,0 +1,33 @@
+# Dependencies & Environments
+node_modules/
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+
+# Build outputs
+dist/
+build/
+backend/__pycache__/
+**/__pycache__/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs & Cache
+*.log
+.vite/
+.pytest_cache/
+
+# OS & IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
