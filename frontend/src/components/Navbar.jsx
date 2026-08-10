@@ -23,21 +23,26 @@ export default function Navbar() {
         </NavLink>
 
         <nav className="nav-links">
-          <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}>
-            Showcase
-          </NavLink>
+          {/* Navigation links only shown to logged-in users */}
+          {user && (
+            <>
+              <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}>
+                Showcase
+              </NavLink>
 
-          {/* Explore: shown to guests and regular users; admins have TMDB search in their panel */}
-          {user?.role !== "admin" && (
-            <NavLink to="/explore" className={({ isActive }) => (isActive ? "active" : "")}>
-              Explore
-            </NavLink>
-          )}
+              {/* Explore: for regular users — admins have TMDB search in their panel */}
+              {user.role !== "admin" && (
+                <NavLink to="/explore" className={({ isActive }) => (isActive ? "active" : "")}>
+                  Explore
+                </NavLink>
+              )}
 
-          {user?.role === "admin" && (
-            <NavLink to="/admin" className={({ isActive }) => (isActive ? "active" : "")}>
-              Admin
-            </NavLink>
+              {user.role === "admin" && (
+                <NavLink to="/admin" className={({ isActive }) => (isActive ? "active" : "")}>
+                  Admin
+                </NavLink>
+              )}
+            </>
           )}
 
           {user ? (

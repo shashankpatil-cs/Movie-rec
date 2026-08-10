@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import RequireAdmin from "./components/RequireAdmin";
+import RequireAuth from "./components/RequireAuth";
 import { AuthProvider } from "./context/AuthContext";
 import AdminAddMovie from "./pages/AdminAddMovie";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -17,12 +18,40 @@ export default function App() {
       <Navbar />
       <main style={{ flex: 1 }}>
         <Routes>
+          {/* Public: landing page for guests, showcase for logged-in users */}
           <Route path="/" element={<Home />} />
-          <Route path="/movies/:id" element={<MovieDetail />} />
+
+          {/* Auth pages — always public */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/explore/:tmdbId" element={<ExploreMovieDetail />} />
+
+          {/* Protected: logged-in users only */}
+          <Route
+            path="/movies/:id"
+            element={
+              <RequireAuth>
+                <MovieDetail />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/explore"
+            element={
+              <RequireAuth>
+                <Explore />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/explore/:tmdbId"
+            element={
+              <RequireAuth>
+                <ExploreMovieDetail />
+              </RequireAuth>
+            }
+          />
+
+          {/* Protected: admin only */}
           <Route
             path="/admin"
             element={
