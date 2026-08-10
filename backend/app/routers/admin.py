@@ -1,12 +1,13 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import require_admin
 from app.database import get_db
-from app.models import Movie, User
-from app.schemas import MovieCreate, MovieOut, MovieUpdate, TMDBMovieResult
+from app.models import Movie, RoleEnum, User, UserRating
+from app.schemas import MovieCreate, MovieOut, MovieUpdate, TMDBMovieResult, UserAdminOut
 from app.tmdb import discover_by_genre, get_movie_details, poster_url, search_movies
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -133,5 +134,64 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db), _admin: User = De
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
     db.delete(movie)
+    db.commit()
+    return None
+
+
+# ------------------------------------------------------------------ #
+#  User management                                                     #
+# ------------------------------------------------------------------ #
+
+@router.get("/users", response_model=List[UserAdminOut])
+def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_admin)):
+    """Admin-only: list every registered user with their rating contribution stats."""
+    # Aggregate rating stats in one query to avoid N+1
+    stats = (
+        db.query(
+            UserRating.user_id,
+            func.count(UserRating.id).label("rating_count"),
+            func.avg(UserRating.rating).label("average_rating"),
+        )
+        .group_by(UserRating.user_id)
+        .all()
+    )
+    stats_map = {row.user_id: row for row in stats}
+
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    result = []
+    for u in users:
+        row = stats_map.get(u.id)
+        result.append(
+            UserAdminOut(
+                id=u.id,
+                username=u.username,
+                email=u.email,
+                role=u.role,
+                created_at=u.created_at,
+                rating_count=row.rating_count if row else 0,
+                average_rating=round(float(row.average_rating), 2) if row else None,
+            )
+        )
+    return result
+
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Admin-only: permanently delete a user account and all their ratings."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own admin account")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.role == RoleEnum.admin:
+        raise HTTPException(status_code=400, detail="Cannot delete another admin account")
+
+    db.delete(user)  # cascade="all, delete-orphan" on ratings handles cleanup
     db.commit()
     return None

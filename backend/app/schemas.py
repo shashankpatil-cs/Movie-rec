@@ -29,6 +29,20 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
+class UserAdminOut(BaseModel):
+    """Extended user info for the admin panel — includes rating stats."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    email: EmailStr
+    role: RoleEnum
+    created_at: datetime
+    rating_count: int = 0          # number of movies rated (contribution)
+    average_rating: Optional[float] = None  # avg score they give
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
