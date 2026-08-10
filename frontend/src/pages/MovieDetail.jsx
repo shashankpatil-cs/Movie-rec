@@ -161,17 +161,43 @@ export default function MovieDetail() {
             {movie.is_featured ? "Featured Pick" : "Admin Showcase Pick"}
           </div>
 
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(32px, 4vw, 44px)",
-              lineHeight: 1.05,
-              margin: 0,
-              color: "var(--text)",
-            }}
-          >
-            {movie.title}
-          </h1>
+          {/* Title & Admin Rating Beside It */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <h1
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "clamp(32px, 4vw, 44px)",
+                lineHeight: 1.05,
+                margin: 0,
+                color: "var(--text)",
+              }}
+            >
+              {movie.title}
+            </h1>
+
+            {movie.admin_rating != null && (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "rgba(227,179,65,0.12)",
+                  border: "1px solid var(--gold)",
+                  color: "var(--gold)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "4px 12px",
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: 700,
+                  fontSize: 16,
+                  whiteSpace: "nowrap",
+                }}
+                title="Admin Rating"
+              >
+                <span>Admin ★</span>
+                <span>{movie.admin_rating.toFixed(1)}</span>
+              </div>
+            )}
+          </div>
 
           <div
             style={{
@@ -206,80 +232,52 @@ export default function MovieDetail() {
               {movie.overview}
             </p>
           )}
+
+          {/* Admin Review Directly Below Description */}
+          {movie.admin_review && (
+            <div
+              style={{
+                marginTop: 14,
+                padding: "14px 18px",
+                background: "var(--surface)",
+                border: "1px solid var(--gold-dim)",
+                borderLeft: "4px solid var(--gold)",
+                borderRadius: "var(--radius-sm)",
+                boxShadow: "0 6px 20px -8px rgba(227,179,65,0.08)",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  letterSpacing: "1px",
+                  textTransform: "uppercase",
+                  color: "var(--gold)",
+                  fontWeight: 700,
+                  marginBottom: 6,
+                }}
+              >
+                Admin Review
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 14.5,
+                  lineHeight: 1.6,
+                  color: "var(--text)",
+                  whiteSpace: "pre-line",
+                }}
+              >
+                &ldquo;{movie.admin_review}&rdquo;
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Section 1: Admin Review & Rating ── */}
-      <div className="section-label">👑 Admin Review &amp; Rating</div>
-      <div
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--gold-dim)",
-          borderLeft: "4px solid var(--gold)",
-          borderRadius: "var(--radius)",
-          padding: "20px 24px",
-          marginBottom: 36,
-          boxShadow: "0 10px 25px -10px rgba(227,179,65,0.08)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 12,
-            marginBottom: movie.admin_review ? 12 : 0,
-          }}
-        >
-          <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", letterSpacing: "1.5px", textTransform: "uppercase" }}>
-              Curator Evaluation
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>
-              Admin Score &amp; Review
-            </div>
-          </div>
-
-          <div
-            style={{
-              background: "rgba(227,179,65,0.12)",
-              border: "1px solid var(--gold)",
-              color: "var(--gold)",
-              borderRadius: "var(--radius-sm)",
-              padding: "6px 16px",
-              fontFamily: "var(--font-mono)",
-              fontWeight: 700,
-              fontSize: 18,
-            }}
-          >
-            ★ {movie.admin_rating?.toFixed(1)} <span style={{ fontSize: 12, opacity: 0.7 }}>/ 10</span>
-          </div>
-        </div>
-
-        {movie.admin_review ? (
-          <p
-            style={{
-              fontSize: 14.5,
-              lineHeight: 1.65,
-              color: "var(--text)",
-              margin: 0,
-              borderTop: "1px dashed var(--border)",
-              paddingTop: 12,
-              whiteSpace: "pre-line",
-            }}
-          >
-            &ldquo;{movie.admin_review}&rdquo;
-          </p>
-        ) : (
-          <p style={{ color: "var(--text-faint)", fontSize: 13, margin: 0, fontStyle: "italic" }}>
-            No written review provided by the admin.
-          </p>
-        )}
-      </div>
-
-      {/* ── Section 2: Audience Ratings & User Input Section ── */}
+      {/* ── Audience Ratings & User Input Section ── */}
       <div className="section-label">👥 Audience Rating &amp; Reviews</div>
+
 
       {/* Audience Score Indicator Banner */}
       <div
@@ -419,70 +417,10 @@ export default function MovieDetail() {
           </div>
         )}
       </div>
-
-      {/* Community User Reviews List */}
-      <div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-muted)", marginBottom: 14 }}>
-          Community User Reviews ({ratings.length})
-        </div>
-
-        {ratings.length === 0 ? (
-          <p style={{ color: "var(--text-faint)", fontSize: 14, fontStyle: "italic" }}>
-            No user reviews submitted yet. Be the first to share your rating!
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {ratings.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "14px 18px",
-                  display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  gap: 16,
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 13.5, color: "var(--text)" }}>
-                      @{r.username || "viewer"}
-                    </span>
-                    <span style={{ fontSize: 11, color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}>
-                      {new Date(r.created_at).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-
-                  <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: r.review ? "var(--text-muted)" : "var(--text-faint)", fontStyle: r.review ? "normal" : "italic" }}>
-                    {r.review || "No written review provided."}
-                  </p>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "4px 8px", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12.5, color: "var(--gold)" }}>
-                    ★ {r.rating.toFixed(1)}
-                  </span>
-                  {user?.role === "admin" && (
-                    <button className="btn danger" style={{ fontSize: 10, padding: "3px 7px" }} onClick={() => deleteUserRating(r.id, r.username)}>
-                      Delete
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
+
 
 
 

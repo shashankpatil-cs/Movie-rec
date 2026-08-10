@@ -58,14 +58,20 @@ function MoviesTab() {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <p style={{ color: "var(--text-muted)", maxWidth: 520, margin: 0 }}>
-          Add new films from TMDB, adjust your own rating and review, or retire a movie from the showcase.
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--gold)", fontWeight: 700, marginBottom: 4 }}>
+            Total Movies Added &amp; Rated by Admin: {movies.length}
+          </div>
+          <p style={{ color: "var(--text-muted)", maxWidth: 520, margin: 0, fontSize: 13 }}>
+            Add new films from TMDB, adjust your personal rating and review, or remove movies from the showcase.
+          </p>
+        </div>
         <Link to="/admin/add" className="btn primary">
           + Add movie
         </Link>
       </div>
+
 
       {error && <div className="error-msg">{error}</div>}
       {loading && <div className="loading-strip">Loading…</div>}
@@ -260,24 +266,26 @@ function UsersTab() {
     );
   };
 
+  const regularUsers = users.filter((u) => u.role !== "admin");
+
   return (
     <>
       <p style={{ color: "var(--text-muted)", margin: "0 0 16px" }}>
-        All registered accounts — view their contribution count, average rating they give, and manage their access.
+        All registered audience accounts — view contribution counts, average ratings given, and manage user access.
       </p>
 
       {error && <div className="error-msg">{error}</div>}
       {success && <div className="success-msg">{success}</div>}
       {loading && <div className="loading-strip">Loading…</div>}
 
-      {!loading && users.length === 0 && (
+      {!loading && regularUsers.length === 0 && (
         <div className="empty-state">
-          <h3>No users yet</h3>
-          <p>Users will appear here once they register.</p>
+          <h3>No registered users yet</h3>
+          <p>Audience accounts will appear here once users register.</p>
         </div>
       )}
 
-      {!loading && users.length > 0 && (
+      {!loading && regularUsers.length > 0 && (
         <table className="admin-table">
           <thead>
             <tr>
@@ -292,8 +300,8 @@ function UsersTab() {
             </tr>
           </thead>
           <tbody>
-            {users.map((u, idx) => (
-              <tr key={u.id} style={{ opacity: u.role === "admin" ? 0.7 : 1 }}>
+            {regularUsers.map((u, idx) => (
+              <tr key={u.id}>
                 <td style={{ color: "var(--text-faint)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
                   {idx + 1}
                 </td>
@@ -304,16 +312,13 @@ function UsersTab() {
                         width: 32,
                         height: 32,
                         borderRadius: "50%",
-                        background:
-                          u.role === "admin"
-                            ? "linear-gradient(135deg, var(--gold-dim), var(--gold))"
-                            : "linear-gradient(135deg, #2a2f38, #3a4049)",
+                        background: "linear-gradient(135deg, #2a2f38, #3a4049)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         fontSize: 13,
                         fontWeight: 700,
-                        color: u.role === "admin" ? "#16130a" : "var(--text-muted)",
+                        color: "var(--text-muted)",
                         flexShrink: 0,
                       }}
                     >
@@ -350,20 +355,14 @@ function UsersTab() {
                 </td>
                 <td>{getRatingBar(u.average_rating)}</td>
                 <td>
-                  {u.role !== "admin" ? (
-                    <button
-                      className="btn danger"
-                      id={`delete-user-${u.id}`}
-                      style={{ fontSize: 12, padding: "5px 12px" }}
-                      onClick={() => deleteUser(u.id, u.username)}
-                    >
-                      Delete
-                    </button>
-                  ) : (
-                    <span style={{ color: "var(--text-faint)", fontSize: 12, fontFamily: "var(--font-mono)" }}>
-                      protected
-                    </span>
-                  )}
+                  <button
+                    className="btn danger"
+                    id={`delete-user-${u.id}`}
+                    style={{ fontSize: 12, padding: "5px 12px" }}
+                    onClick={() => deleteUser(u.id, u.username)}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
@@ -371,7 +370,7 @@ function UsersTab() {
         </table>
       )}
 
-      {!loading && users.length > 0 && (
+      {!loading && regularUsers.length > 0 && (
         <div
           style={{
             marginTop: 16,
@@ -387,24 +386,25 @@ function UsersTab() {
           }}
         >
           <span>
-            Total users: <strong style={{ color: "var(--text)" }}>{users.length}</strong>
+            Total audience users: <strong style={{ color: "var(--text)" }}>{regularUsers.length}</strong>
           </span>
           <span>
             Active contributors:{" "}
             <strong style={{ color: "var(--gold)" }}>
-              {users.filter((u) => u.rating_count > 0).length}
+              {regularUsers.filter((u) => u.rating_count > 0).length}
             </strong>
           </span>
           <span>
-            Total ratings:{" "}
+            Total user ratings:{" "}
             <strong style={{ color: "var(--text)" }}>
-              {users.reduce((sum, u) => sum + u.rating_count, 0)}
+              {regularUsers.reduce((sum, u) => sum + u.rating_count, 0)}
             </strong>
           </span>
         </div>
       )}
     </>
   );
+
 }
 
 /* ------------------------------------------------------------------ */
@@ -412,16 +412,204 @@ function UsersTab() {
 /* ------------------------------------------------------------------ */
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("movies");
+  const [stats, setStats] = useState({ users: 0, movies: 0, contributors: 0, ratings: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get("/admin/users").catch(() => ({ data: [] })),
+      api.get("/movies").catch(() => ({ data: [] })),
+    ]).then(([usersRes, moviesRes]) => {
+      const allUsers = usersRes.data || [];
+      const regularUsers = allUsers.filter((u) => u.role !== "admin");
+      const moviesList = moviesRes.data || [];
+
+      const totalUsers = regularUsers.length;
+      const totalMovies = moviesList.length;
+      const activeContributors = regularUsers.filter((u) => u.rating_count > 0).length;
+      const totalRatings = regularUsers.reduce((sum, u) => sum + (u.rating_count || 0), 0);
+
+      setStats({
+        users: totalUsers,
+        movies: totalMovies,
+        contributors: activeContributors,
+        ratings: totalRatings,
+      });
+      setLoadingStats(false);
+    });
+  }, []);
+
 
   const tabs = [
-    { id: "movies", label: "🎬 Showcase" },
-    { id: "users", label: "👥 Users" },
+    { id: "movies", label: `🎬 Admin Section (${stats.movies})` },
+    { id: "users", label: `👥 Users (${stats.users})` },
   ];
 
   return (
     <div className="container" style={{ paddingBottom: 60 }}>
       <div className="section-label" style={{ marginTop: 40 }}>
-        Admin &middot; Dashboard
+        Admin &middot; Control Panel
+      </div>
+
+      {/* ── Top Overview Stat Cards ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 16,
+          marginTop: 20,
+          marginBottom: 28,
+        }}
+      >
+        {/* Card 1: Total Users */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--gold-dim)",
+            borderRadius: "var(--radius-sm)",
+            padding: "16px 20px",
+            boxShadow: "0 8px 20px -8px rgba(227,179,65,0.08)",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "var(--gold)",
+              marginBottom: 4,
+            }}
+          >
+            Registered Audience Accounts
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 32,
+              fontWeight: 700,
+              color: "var(--text)",
+              lineHeight: 1,
+            }}
+          >
+            {loadingStats ? "…" : stats.users}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+            Total Registered Users
+          </div>
+        </div>
+
+        {/* Card 2: Total Movies Added & Rated by Admin */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--gold-dim)",
+            borderRadius: "var(--radius-sm)",
+            padding: "16px 20px",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "var(--gold)",
+              marginBottom: 4,
+            }}
+          >
+            Admin Curated Catalog
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 32,
+              fontWeight: 700,
+              color: "var(--gold)",
+              lineHeight: 1,
+            }}
+          >
+            {loadingStats ? "…" : stats.movies}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+            Total Movies Added &amp; Rated by Admin
+          </div>
+        </div>
+
+
+        {/* Card 3: Active Contributors */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "16px 20px",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "#6ab0e3",
+              marginBottom: 4,
+            }}
+          >
+            Engaged Audience
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 32,
+              fontWeight: 700,
+              color: "#6ab0e3",
+              lineHeight: 1,
+            }}
+          >
+            {loadingStats ? "…" : stats.contributors}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+            Active Contributors
+          </div>
+        </div>
+
+        {/* Card 4: Total User Ratings */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            padding: "16px 20px",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "var(--text-faint)",
+              marginBottom: 4,
+            }}
+          >
+            Submitted Reviews
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 32,
+              fontWeight: 700,
+              color: "var(--text)",
+              lineHeight: 1,
+            }}
+          >
+            {loadingStats ? "…" : stats.ratings}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+            Total User Ratings
+          </div>
+        </div>
       </div>
 
       {/* Tab bar */}
@@ -429,7 +617,6 @@ export default function AdminDashboard() {
         style={{
           display: "flex",
           gap: 4,
-          marginTop: 20,
           marginBottom: 28,
           borderBottom: "1px solid var(--border)",
           paddingBottom: 0,
@@ -464,3 +651,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
