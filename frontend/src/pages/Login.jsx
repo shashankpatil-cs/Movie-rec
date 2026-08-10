@@ -1,14 +1,18 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -16,7 +20,7 @@ export default function Login() {
     setBusy(true);
     try {
       await login(username, password);
-      navigate("/");
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err?.response?.data?.detail || "Couldn't log you in. Check your details.");
     } finally {

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Register() {
-  const { register } = useAuth();
+  const { user, register } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -11,13 +11,17 @@ export default function Register() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setBusy(true);
     try {
       await register(username, email, password);
-      navigate("/");
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err?.response?.data?.detail || "Couldn't create your account.");
     } finally {
