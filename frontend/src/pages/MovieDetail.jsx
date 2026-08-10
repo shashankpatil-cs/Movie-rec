@@ -63,6 +63,34 @@ export default function MovieDetail() {
     }
   }
 
+  async function removeRating() {
+    if (!window.confirm("Are you sure you want to remove your rating?")) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      await api.delete(`/movies/${id}/rate`);
+      setSaveMsg("Your rating was removed.");
+      setHasRated(false);
+      setMyReview("");
+      setMyRating(7);
+      loadAll();
+    } catch (err) {
+      setSaveMsg(err?.response?.data?.detail || "Couldn't remove your rating.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteUserRating(ratingId, authorName) {
+    if (!window.confirm(`Delete rating by ${authorName || "viewer"}?`)) return;
+    try {
+      await api.delete(`/admin/ratings/${ratingId}`);
+      loadAll();
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Couldn't delete rating.");
+    }
+  }
+
   if (loading) return <div className="loading-strip">Rolling the film…</div>;
   if (error || !movie) return <div className="container"><div className="error-msg">{error}</div></div>;
 
@@ -142,9 +170,21 @@ export default function MovieDetail() {
                 placeholder="What did you think?"
               />
             </div>
-            <button className="btn primary" disabled={saving}>
-              {saving ? "Saving…" : hasRated ? "Update rating" : "Submit rating"}
-            </button>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button className="btn primary" disabled={saving}>
+                {saving ? "Saving…" : hasRated ? "Update rating" : "Submit rating"}
+              </button>
+              {hasRated && (
+                <button
+                  type="button"
+                  className="btn danger"
+                  disabled={saving}
+                  onClick={removeRating}
+                >
+                  Remove rating
+                </button>
+              )}
+            </div>
           </form>
         </div>
       ) : (
@@ -163,10 +203,19 @@ export default function MovieDetail() {
           <p style={{ color: "var(--text-faint)" }}>No one has rated this yet — be the first.</p>
         )}
         {ratings.map((r) => (
-          <div className="user-review-row" key={r.id}>
+          <div className="user-review-row" key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span className="who">{r.username || "viewer"}</span>
             <div style={{ flex: 1 }}>{r.review || <em style={{ color: "var(--text-faint)" }}>No written review</em>}</div>
             <span className="score">{r.rating.toFixed(1)}</span>
+            {user?.role === "admin" && (
+              <button
+                className="btn danger"
+                style={{ fontSize: 11, padding: "3px 8px", marginLeft: 8 }}
+                onClick={() => deleteUserRating(r.id, r.username)}
+              >
+                Delete
+              </button>
+            )}
           </div>
         ))}
       </div>

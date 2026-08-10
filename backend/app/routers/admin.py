@@ -195,3 +195,20 @@ def delete_user(
     db.delete(user)  # cascade="all, delete-orphan" on ratings handles cleanup
     db.commit()
     return None
+
+
+@router.delete("/ratings/{rating_id}", status_code=204)
+def delete_rating(
+    rating_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Admin-only: delete any user's rating."""
+    rating = db.query(UserRating).filter(UserRating.id == rating_id).first()
+    if not rating:
+        raise HTTPException(status_code=404, detail="Rating not found")
+
+    db.delete(rating)
+    db.commit()
+    return None
+
