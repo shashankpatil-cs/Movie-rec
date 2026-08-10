@@ -1,3 +1,4 @@
+import difflib
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -46,26 +47,47 @@ def list_movies(
 ):
     query = db.query(Movie)
 
-    if q:
-        query = query.filter(Movie.title.ilike(f"%{q}%"))
-
     if genre:
         query = query.filter(Movie.genres.ilike(f"%{genre}%"))
 
     if featured_only:
         query = query.filter(Movie.is_featured.is_(True))
 
-    if sort == "newest":
-        query = query.order_by(Movie.created_at.desc())
-    elif sort == "admin_rating":
-        query = query.order_by(Movie.admin_rating.desc())
-    elif sort == "title":
-        query = query.order_by(Movie.title.asc())
+    all_movies = query.all()
 
-    movies = query.all()
+    if q:
+        q_clean = q.strip().lower()
+        exact_matches = [m for m in all_movies if q_clean in m.title.lower()]
+        if exact_matches:
+            movies = exact_matches
+        else:
+            scored_movies = []
+            for m in all_movies:
+                t_lower = m.title.lower()
+                ratio = difflib.SequenceMatcher(None, q_clean, t_lower).ratio()
+                words = t_lower.split()
+                max_word_ratio = max(
+                    [difflib.SequenceMatcher(None, q_clean, w).ratio() for w in words],
+                    default=0,
+                )
+                score = max(ratio, max_word_ratio)
+                if score >= 0.45:
+                    scored_movies.append((score, m))
+            scored_movies.sort(key=lambda x: x[0], reverse=True)
+            movies = [m for _, m in scored_movies]
+    else:
+        movies = all_movies
+
+    if sort == "newest" and not (q and not exact_matches):
+        movies.sort(key=lambda m: m.created_at, reverse=True)
+    elif sort == "admin_rating" and not (q and not exact_matches):
+        movies.sort(key=lambda m: m.admin_rating or 0, reverse=True)
+    elif sort == "title" and not (q and not exact_matches):
+        movies.sort(key=lambda m: m.title)
+
     results = [_to_movie_out(db, m) for m in movies]
 
-    if sort == "user_rating":
+    if sort == "user_rating" and not (q and not exact_matches):
         results.sort(key=lambda m: (m.average_user_rating or 0), reverse=True)
 
     return results

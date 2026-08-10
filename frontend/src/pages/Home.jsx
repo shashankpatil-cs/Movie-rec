@@ -380,7 +380,7 @@ function LandingPage() {
 /*  LoggedInHomePage — Recommendation Hub + Optional Admin Showcase     */
 /* ================================================================== */
 function LoggedInHomePage() {
-  const [activeTab, setActiveTab] = useState("recommendations"); // 'recommendations' or 'admin_showcase'
+  const [activeTab, setActiveTab] = useState("admin_showcase"); // Showcase by default, recommendations as option
   const [recData, setRecData] = useState(null);
   const [loadingRecs, setLoadingRecs] = useState(true);
 
@@ -487,20 +487,6 @@ function LoggedInHomePage() {
           {/* Mode Switcher Buttons */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <button
-              onClick={() => setActiveTab("recommendations")}
-              className={`pill-btn ${activeTab === "recommendations" ? "solid" : ""}`}
-              style={{
-                fontSize: 14,
-                padding: "10px 22px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span>✨ Recommended For You</span>
-            </button>
-
-            <button
               onClick={() => setActiveTab("admin_showcase")}
               className={`pill-btn ${activeTab === "admin_showcase" ? "solid" : ""}`}
               style={{
@@ -511,7 +497,21 @@ function LoggedInHomePage() {
                 gap: 8,
               }}
             >
-              <span>👑 Admin Showcase (Option to View)</span>
+              <span>🎬 Movie Showcase</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("recommendations")}
+              className={`pill-btn ${activeTab === "recommendations" ? "solid" : ""}`}
+              style={{
+                fontSize: 14,
+                padding: "10px 22px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span>✨ AI Recommendation</span>
             </button>
           </div>
         </div>
@@ -613,7 +613,7 @@ function LoggedInHomePage() {
                     >
                       <div>
                         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: recData.recommendation_type === "hybrid" ? "#6ab0e3" : "var(--gold)", marginBottom: 4 }}>
-                          Recommendation Engine Active
+                          AI Recommendation Active
                         </div>
                         <h2 style={{ fontSize: 22, margin: 0, fontFamily: "var(--font-display)", color: "var(--text)" }}>
                           {recData.badge}
