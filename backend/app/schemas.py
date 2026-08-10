@@ -104,6 +104,7 @@ class MovieOut(MovieBase):
     poster_url: Optional[str] = None
     average_user_rating: Optional[float] = None
     user_rating_count: int = 0
+    is_audience_unlocked: bool = False
 
 
 class MovieDetailOut(MovieOut):

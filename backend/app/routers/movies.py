@@ -19,10 +19,13 @@ def _to_movie_out(db: Session, movie: Movie) -> MovieOut:
         .first()
     )
     avg_rating, count = agg if agg else (None, 0)
+    count = count or 0
+    is_unlocked = count >= 3
     data = MovieOut.model_validate(movie)
     data.poster_url = poster_url(movie.poster_path)
-    data.average_user_rating = round(avg_rating, 2) if avg_rating is not None else None
-    data.user_rating_count = count or 0
+    data.user_rating_count = count
+    data.is_audience_unlocked = is_unlocked
+    data.average_user_rating = round(avg_rating, 2) if (avg_rating is not None and is_unlocked) else None
     return data
 
 

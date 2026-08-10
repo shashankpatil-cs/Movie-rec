@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import api from "../api/axios";
 import StarRating from "../components/StarRating";
 import { useAuth } from "../context/AuthContext";
@@ -53,29 +53,29 @@ export default function MovieDetail() {
     setSaveMsg("");
     try {
       await api.post(`/movies/${id}/rate`, { rating: myRating, review: myReview });
-      setSaveMsg("Your rating was saved.");
+      setSaveMsg("Rating saved!");
       setHasRated(true);
       loadAll();
     } catch (err) {
-      setSaveMsg(err?.response?.data?.detail || "Couldn't save your rating.");
+      setSaveMsg(err?.response?.data?.detail || "Couldn't save rating.");
     } finally {
       setSaving(false);
     }
   }
 
   async function removeRating() {
-    if (!window.confirm("Are you sure you want to remove your rating?")) return;
+    if (!window.confirm("Remove your rating?")) return;
     setSaving(true);
     setSaveMsg("");
     try {
       await api.delete(`/movies/${id}/rate`);
-      setSaveMsg("Your rating was removed.");
+      setSaveMsg("Rating removed.");
       setHasRated(false);
       setMyReview("");
       setMyRating(7);
       loadAll();
     } catch (err) {
-      setSaveMsg(err?.response?.data?.detail || "Couldn't remove your rating.");
+      setSaveMsg(err?.response?.data?.detail || "Couldn't remove rating.");
     } finally {
       setSaving(false);
     }
@@ -91,45 +91,101 @@ export default function MovieDetail() {
     }
   }
 
-  if (loading) return <div className="loading-strip">Rolling the film…</div>;
-  if (error || !movie) return <div className="container"><div className="error-msg">{error}</div></div>;
+  if (loading) return <div className="loading-strip">Loading movie…</div>;
+  if (error || !movie)
+    return (
+      <div className="container" style={{ paddingTop: 30 }}>
+        <div className="error-msg">{error}</div>
+      </div>
+    );
 
-  const genres = (movie.genres || "").split(",").map((g) => g.trim()).filter(Boolean);
+  const genres = (movie.genres || "")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+
+  const isAudienceUnlocked =
+    movie.is_audience_unlocked || (movie.user_rating_count >= 3 && movie.average_user_rating != null);
 
   return (
-    <div className="container">
-      <div className="detail-hero">
-        <div className="detail-poster">
+    <div className="container" style={{ padding: "32px 24px 60px", maxWidth: 960 }}>
+      {/* ── Movie Hero Header (Proper Poster + Movie Details) ── */}
+      <div
+        style={{
+          display: "flex",
+          gap: 28,
+          marginBottom: 32,
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* Proper Proportioned Poster Image */}
+        <div
+          style={{
+            width: 220,
+            height: 330,
+            flexShrink: 0,
+            borderRadius: "var(--radius)",
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+            boxShadow: "0 14px 30px -10px rgba(0,0,0,0.5)",
+            background: "var(--surface)",
+            position: "relative",
+          }}
+        >
           {movie.poster_url ? (
-            <img src={movie.poster_url} alt={`${movie.title} poster`} />
+            <img
+              src={movie.poster_url}
+              alt={`${movie.title} poster`}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
           ) : (
-            <div className="no-poster" style={{ padding: 24 }}>
+            <div className="no-poster" style={{ padding: 16, fontSize: 18, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
               {movie.title}
             </div>
           )}
+
+          {movie.is_featured && (
+            <span
+              className="featured-tag"
+              style={{ position: "absolute", top: 10, left: 10, fontSize: 10, padding: "3px 8px" }}
+            >
+              ⭐ Featured
+            </span>
+          )}
         </div>
 
-        <div>
-          <div className="hero-eyebrow">
-            {movie.is_featured ? "Featured pick" : "In the showcase"}
+        {/* Movie Details */}
+        <div style={{ flex: 1, minWidth: 280, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="hero-eyebrow" style={{ fontSize: 11, marginBottom: 0 }}>
+            {movie.is_featured ? "Featured Pick" : "Admin Showcase Pick"}
           </div>
-          <h1 className="detail-title">{movie.title}</h1>
 
-          <div className="detail-meta-row">
-            <span className="admin-score" style={{ position: "static" }}>
-              {movie.admin_rating?.toFixed(1)}
-            </span>
-            <span style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
-              {movie.release_date ? movie.release_date.slice(0, 4) : "—"}
-              {movie.runtime ? ` · ${movie.runtime} min` : ""}
-              {movie.average_user_rating != null
-                ? ` · Audience ${movie.average_user_rating.toFixed(1)} (${movie.user_rating_count})`
-                : " · No audience ratings yet"}
-            </span>
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(32px, 4vw, 44px)",
+              lineHeight: 1.05,
+              margin: 0,
+              color: "var(--text)",
+            }}
+          >
+            {movie.title}
+          </h1>
+
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 14,
+              color: "var(--text-muted)",
+            }}
+          >
+            {movie.release_date ? movie.release_date.slice(0, 4) : "—"}
+            {movie.runtime ? ` · ${movie.runtime} min` : ""}
           </div>
 
           {genres.length > 0 && (
-            <div className="genre-tags" style={{ marginBottom: 16 }}>
+            <div className="genre-tags" style={{ margin: "4px 0" }}>
               {genres.map((g) => (
                 <span key={g} className="genre-tag">
                   {g}
@@ -138,87 +194,296 @@ export default function MovieDetail() {
             </div>
           )}
 
-          <p className="overview-text">{movie.overview}</p>
-
-          {movie.admin_review && (
-            <div className="review-card">
-              <div className="review-label">Why it's here — the admin's take</div>
-              <p>{movie.admin_review}</p>
-            </div>
+          {movie.overview && (
+            <p
+              style={{
+                color: "var(--text-muted)",
+                fontSize: 15,
+                lineHeight: 1.6,
+                margin: "4px 0 0",
+              }}
+            >
+              {movie.overview}
+            </p>
           )}
         </div>
       </div>
 
-      <div className="section-label">Your rating</div>
+      {/* ── Section 1: Admin Review & Rating ── */}
+      <div className="section-label">👑 Admin Review &amp; Rating</div>
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--gold-dim)",
+          borderLeft: "4px solid var(--gold)",
+          borderRadius: "var(--radius)",
+          padding: "20px 24px",
+          marginBottom: 36,
+          boxShadow: "0 10px 25px -10px rgba(227,179,65,0.08)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+            marginBottom: movie.admin_review ? 12 : 0,
+          }}
+        >
+          <div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", letterSpacing: "1.5px", textTransform: "uppercase" }}>
+              Curator Evaluation
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>
+              Admin Score &amp; Review
+            </div>
+          </div>
 
-      {user ? (
-        <div className="form-card" style={{ margin: "0 0 40px", maxWidth: 560 }}>
-          {saveMsg && (
-            <div className={hasRated ? "success-msg" : "error-msg"}>{saveMsg}</div>
-          )}
-          <form onSubmit={submitRating}>
-            <div className="field">
-              <label>Score (0&ndash;10)</label>
+          <div
+            style={{
+              background: "rgba(227,179,65,0.12)",
+              border: "1px solid var(--gold)",
+              color: "var(--gold)",
+              borderRadius: "var(--radius-sm)",
+              padding: "6px 16px",
+              fontFamily: "var(--font-mono)",
+              fontWeight: 700,
+              fontSize: 18,
+            }}
+          >
+            ★ {movie.admin_rating?.toFixed(1)} <span style={{ fontSize: 12, opacity: 0.7 }}>/ 10</span>
+          </div>
+        </div>
+
+        {movie.admin_review ? (
+          <p
+            style={{
+              fontSize: 14.5,
+              lineHeight: 1.65,
+              color: "var(--text)",
+              margin: 0,
+              borderTop: "1px dashed var(--border)",
+              paddingTop: 12,
+              whiteSpace: "pre-line",
+            }}
+          >
+            &ldquo;{movie.admin_review}&rdquo;
+          </p>
+        ) : (
+          <p style={{ color: "var(--text-faint)", fontSize: 13, margin: 0, fontStyle: "italic" }}>
+            No written review provided by the admin.
+          </p>
+        )}
+      </div>
+
+      {/* ── Section 2: Audience Ratings & User Input Section ── */}
+      <div className="section-label">👥 Audience Rating &amp; Reviews</div>
+
+      {/* Audience Score Indicator Banner */}
+      <div
+        style={{
+          background: isAudienceUnlocked ? "rgba(106,176,232,0.08)" : "var(--bg-alt)",
+          border: `1px solid ${isAudienceUnlocked ? "rgba(106,176,232,0.25)" : "var(--border)"}`,
+          borderRadius: "var(--radius)",
+          padding: "18px 24px",
+          marginBottom: 24,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 16,
+        }}
+      >
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: isAudienceUnlocked ? "#6ab0e3" : "var(--text-faint)", marginBottom: 2 }}>
+            Community Rating
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text)" }}>
+            {isAudienceUnlocked ? "Audience Average Score" : "Audience Rating Locked"}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+            {isAudienceUnlocked
+              ? `Calculated from ${movie.user_rating_count} user rating${movie.user_rating_count > 1 ? "s" : ""}`
+              : `Requires at least 3 user ratings to unlock audience score (${movie.user_rating_count}/3 submitted)`}
+          </div>
+        </div>
+
+        {isAudienceUnlocked ? (
+          <div
+            style={{
+              background: "rgba(106,176,232,0.15)",
+              border: "1.5px solid #6ab0e3",
+              color: "#6ab0e3",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 16px",
+              fontFamily: "var(--font-mono)",
+              fontWeight: 700,
+              fontSize: 20,
+            }}
+          >
+            ★ {movie.average_user_rating.toFixed(1)}
+          </div>
+        ) : (
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 14px",
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <span>🔒</span>
+            <span>Needs 3+ ratings ({movie.user_rating_count}/3)</span>
+          </div>
+        )}
+      </div>
+
+      {/* User Input Rating & Review Card */}
+      <div
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius)",
+          padding: "22px 24px",
+          marginBottom: 32,
+        }}
+      >
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, textTransform: "uppercase", letterSpacing: "1px", color: "var(--gold)", marginBottom: 14, fontWeight: 700 }}>
+          Your Rating &amp; Review Input
+        </div>
+
+        {user ? (
+          <form onSubmit={submitRating} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {saveMsg && (
+              <div className={hasRated ? "success-msg" : "error-msg"} style={{ padding: "8px 12px", fontSize: 13 }}>
+                {saveMsg}
+              </div>
+            )}
+
+            <div>
+              <label style={{ fontSize: 13, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                Your Rating (0 to 10):
+              </label>
               <StarRating value={myRating} onChange={setMyRating} disabled={saving} />
             </div>
-            <div className="field">
-              <label htmlFor="review">Review (optional)</label>
+
+            <div>
+              <label htmlFor="userReview" style={{ fontSize: 13, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                Your Review (optional):
+              </label>
               <textarea
-                id="review"
+                id="userReview"
                 value={myReview}
                 onChange={(e) => setMyReview(e.target.value)}
-                placeholder="What did you think?"
+                placeholder="What did you think of this film?"
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  color: "var(--text)",
+                  fontSize: 14,
+                }}
               />
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
+
+            <div style={{ display: "flex", gap: 10 }}>
               <button className="btn primary" disabled={saving}>
-                {saving ? "Saving…" : hasRated ? "Update rating" : "Submit rating"}
+                {saving ? "Saving…" : hasRated ? "Update Rating" : "Submit Rating"}
               </button>
               {hasRated && (
-                <button
-                  type="button"
-                  className="btn danger"
-                  disabled={saving}
-                  onClick={removeRating}
-                >
-                  Remove rating
+                <button type="button" className="btn danger" disabled={saving} onClick={removeRating}>
+                  Remove Rating
                 </button>
               )}
             </div>
           </form>
-        </div>
-      ) : (
-        <div className="empty-state" style={{ padding: "30px 20px" }}>
-          <p>
-            <a href="/login" className="pill-btn solid" style={{ display: "inline-block" }}>
-              Log in to rate this film
-            </a>
-          </p>
-        </div>
-      )}
-
-      <div className="section-label">Audience reviews ({ratings.length})</div>
-      <div style={{ paddingBottom: 60 }}>
-        {ratings.length === 0 && (
-          <p style={{ color: "var(--text-faint)" }}>No one has rated this yet — be the first.</p>
-        )}
-        {ratings.map((r) => (
-          <div className="user-review-row" key={r.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span className="who">{r.username || "viewer"}</span>
-            <div style={{ flex: 1 }}>{r.review || <em style={{ color: "var(--text-faint)" }}>No written review</em>}</div>
-            <span className="score">{r.rating.toFixed(1)}</span>
-            {user?.role === "admin" && (
-              <button
-                className="btn danger"
-                style={{ fontSize: 11, padding: "3px 8px", marginLeft: 8 }}
-                onClick={() => deleteUserRating(r.id, r.username)}
-              >
-                Delete
-              </button>
-            )}
+        ) : (
+          <div className="empty-state" style={{ padding: "20px 16px", textAlign: "left" }}>
+            <p style={{ margin: "0 0 12px", color: "var(--text-muted)", fontSize: 14 }}>
+              Log in to leave your personal rating and written review.
+            </p>
+            <Link to="/login" className="pill-btn solid" style={{ display: "inline-block" }}>
+              Log in to rate this film →
+            </Link>
           </div>
-        ))}
+        )}
+      </div>
+
+      {/* Community User Reviews List */}
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, textTransform: "uppercase", letterSpacing: "1px", color: "var(--text-muted)", marginBottom: 14 }}>
+          Community User Reviews ({ratings.length})
+        </div>
+
+        {ratings.length === 0 ? (
+          <p style={{ color: "var(--text-faint)", fontSize: 14, fontStyle: "italic" }}>
+            No user reviews submitted yet. Be the first to share your rating!
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {ratings.map((r) => (
+              <div
+                key={r.id}
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  padding: "14px 18px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 16,
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 13.5, color: "var(--text)" }}>
+                      @{r.username || "viewer"}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}>
+                      {new Date(r.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                  </div>
+
+                  <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: r.review ? "var(--text-muted)" : "var(--text-faint)", fontStyle: r.review ? "normal" : "italic" }}>
+                    {r.review || "No written review provided."}
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ background: "var(--surface-raised)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "4px 8px", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12.5, color: "var(--gold)" }}>
+                    ★ {r.rating.toFixed(1)}
+                  </span>
+                  {user?.role === "admin" && (
+                    <button className="btn danger" style={{ fontSize: 10, padding: "3px 7px" }} onClick={() => deleteUserRating(r.id, r.username)}>
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+
+
+

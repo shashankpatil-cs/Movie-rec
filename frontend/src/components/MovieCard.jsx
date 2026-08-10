@@ -8,11 +8,17 @@ export default function MovieCard({ movie }) {
     .filter(Boolean)
     .slice(0, 3);
 
+  const isAudienceUnlocked = movie.is_audience_unlocked || (movie.user_rating_count >= 3 && movie.average_user_rating != null);
+
   return (
     <Link to={`/movies/${movie.id}`} className="ticket-card">
       <div className="ticket-poster">
         {movie.is_featured && <span className="featured-tag">Featured</span>}
-        <span className="admin-score">{movie.admin_rating?.toFixed(1)}</span>
+        {movie.admin_rating != null && (
+          <span className="admin-score" title={`Admin Rating: ${movie.admin_rating.toFixed(1)}`}>
+            {movie.admin_rating.toFixed(1)}
+          </span>
+        )}
         {movie.poster_url ? (
           <img src={movie.poster_url} alt={`${movie.title} poster`} loading="lazy" />
         ) : (
@@ -39,16 +45,42 @@ export default function MovieCard({ movie }) {
           </div>
         )}
 
+        {movie.overview && (
+          <p
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              margin: "4px 0 0",
+              lineHeight: 1.4,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {movie.overview}
+          </p>
+        )}
+
         <div className="ticket-footer">
-          <span>Admin pick</span>
-          <span className="user-score-dot">
-            <span className="dot" />
-            {movie.average_user_rating != null
-              ? `${movie.average_user_rating.toFixed(1)} (${movie.user_rating_count})`
-              : "Unrated"}
+          <span style={{ fontSize: 11, color: "var(--gold)", fontFamily: "var(--font-mono)" }}>
+            Admin ★ {movie.admin_rating?.toFixed(1)}
+          </span>
+          <span className="user-score-dot" style={{ fontSize: 11, fontFamily: "var(--font-mono)" }}>
+            {isAudienceUnlocked ? (
+              <>
+                <span className="dot" style={{ background: "var(--gold)" }} />
+                <span>Audience ★ {movie.average_user_rating.toFixed(1)} ({movie.user_rating_count})</span>
+              </>
+            ) : (
+              <span style={{ color: "var(--text-faint)" }}>
+                🔒 3+ ratings req ({movie.user_rating_count}/3)
+              </span>
+            )}
           </span>
         </div>
       </div>
     </Link>
   );
 }
+
