@@ -4,6 +4,8 @@ import RequireAdmin from "./components/RequireAdmin";
 import { AuthProvider } from "./context/AuthContext";
 import AdminAddMovie from "./pages/AdminAddMovie";
 import AdminDashboard from "./pages/AdminDashboard";
+import Explore from "./pages/Explore";
+import ExploreMovieDetail from "./pages/ExploreMovieDetail";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import MovieDetail from "./pages/MovieDetail";
@@ -19,6 +21,8 @@ export default function App() {
           <Route path="/movies/:id" element={<MovieDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/explore" element={<Explore />} />
+          <Route path="/explore/:tmdbId" element={<ExploreMovieDetail />} />
           <Route
             path="/admin"
             element={

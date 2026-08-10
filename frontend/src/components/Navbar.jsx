@@ -27,6 +27,13 @@ export default function Navbar() {
             Showcase
           </NavLink>
 
+          {/* Explore: shown to guests and regular users; admins have TMDB search in their panel */}
+          {user?.role !== "admin" && (
+            <NavLink to="/explore" className={({ isActive }) => (isActive ? "active" : "")}>
+              Explore
+            </NavLink>
+          )}
+
           {user?.role === "admin" && (
             <NavLink to="/admin" className={({ isActive }) => (isActive ? "active" : "")}>
               Admin
