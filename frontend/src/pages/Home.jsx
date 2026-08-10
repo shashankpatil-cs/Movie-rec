@@ -377,17 +377,37 @@ function LandingPage() {
 }
 
 /* ================================================================== */
-/*  Showcase page shown to logged-in users                             */
+/*  LoggedInHomePage — Recommendation Hub + Optional Admin Showcase     */
 /* ================================================================== */
-function ShowcasePage() {
+function LoggedInHomePage() {
+  const [activeTab, setActiveTab] = useState("recommendations"); // 'recommendations' or 'admin_showcase'
+  const [recData, setRecData] = useState(null);
+  const [loadingRecs, setLoadingRecs] = useState(true);
+
+  // Admin showcase state
   const [movies, setMovies] = useState([]);
   const [genres, setGenres] = useState([]);
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("");
   const [sort, setSort] = useState("newest");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadingShowcase, setLoadingShowcase] = useState(false);
+  const [quickRateMsg, setQuickRateMsg] = useState("");
 
+  // Load recommendations
+  function fetchRecommendations() {
+    setLoadingRecs(true);
+    api
+      .get("/recommendations")
+      .then((res) => setRecData(res.data))
+      .catch(() => setRecData(null))
+      .finally(() => setLoadingRecs(false));
+  }
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
+
+  // Load admin showcase genres
   useEffect(() => {
     api
       .get("/movies/genres")
@@ -395,9 +415,10 @@ function ShowcasePage() {
       .catch(() => setGenres([]));
   }, []);
 
+  // Load admin showcase movies if activeTab === 'admin_showcase'
   useEffect(() => {
-    setLoading(true);
-    setError("");
+    if (activeTab !== "admin_showcase") return;
+    setLoadingShowcase(true);
     const params = {};
     if (query) params.q = query;
     if (genre) params.genre = genre;
@@ -407,63 +428,269 @@ function ShowcasePage() {
       api
         .get("/movies", { params })
         .then((res) => setMovies(res.data))
-        .catch(() => setError("Couldn't load the showcase. Is the backend running?"))
-        .finally(() => setLoading(false));
-    }, 250);
+        .catch(() => setMovies([]))
+        .finally(() => setLoadingShowcase(false));
+    }, 200);
 
     return () => clearTimeout(handle);
-  }, [query, genre, sort]);
+  }, [activeTab, query, genre, sort]);
+
+  // Quick rate handler for locked state
+  async function submitQuickRating(movieId, ratingScore) {
+    try {
+      await api.post(`/movies/${movieId}/rate`, { rating: ratingScore });
+      setQuickRateMsg("★ Rating submitted successfully!");
+      setTimeout(() => setQuickRateMsg(""), 3500);
+      fetchRecommendations();
+    } catch (err) {
+      setQuickRateMsg(err?.response?.data?.detail || "Could not submit rating.");
+    }
+  }
+
 
   return (
     <>
-      <section className="hero">
+      {/* ── Top Navigation Banner / Tab Switcher ── */}
+      <div
+        style={{
+          background: "linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%)",
+          borderBottom: "1px solid var(--border)",
+          padding: "36px 0 24px",
+        }}
+      >
         <div className="container">
-          <div className="hero-eyebrow">Now Showing &middot; Curated by the house</div>
-          <h1>
-            Every film worth
-            <br />
-            staying up for.
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              letterSpacing: "2px",
+              textTransform: "uppercase",
+              color: "var(--gold)",
+              marginBottom: 8,
+            }}
+          >
+            Personalized Cinema Hub
+          </div>
+
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(32px, 5vw, 52px)",
+              lineHeight: 1.02,
+              margin: "0 0 20px",
+              color: "var(--text)",
+            }}
+          >
+            Welcome to your <span style={{ color: "var(--gold)" }}>Movie Hub</span>
           </h1>
-          <p>
-            Hand-picked, rated and reviewed by the admin. Browse by genre, or add your own
-            rating once you&apos;ve watched.
-          </p>
-          <SearchBar
-            query={query}
-            onQueryChange={setQuery}
-            genre={genre}
-            onGenreChange={setGenre}
-            genres={genres}
-            sort={sort}
-            onSortChange={setSort}
-          />
+
+          {/* Mode Switcher Buttons */}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setActiveTab("recommendations")}
+              className={`pill-btn ${activeTab === "recommendations" ? "solid" : ""}`}
+              style={{
+                fontSize: 14,
+                padding: "10px 22px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span>✨ Recommended For You</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("admin_showcase")}
+              className={`pill-btn ${activeTab === "admin_showcase" ? "solid" : ""}`}
+              style={{
+                fontSize: 14,
+                padding: "10px 22px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span>👑 Admin Showcase (Option to View)</span>
+            </button>
+          </div>
         </div>
-      </section>
+      </div>
 
-      <div className="container">
-        <div className="section-label">
-          {genre ? `${genre} picks` : "The showcase"} ({movies.length})
-        </div>
+      {/* ── Main Content Container ── */}
+      <div className="container" style={{ padding: "36px 24px 60px" }}>
+        {/* ================================================================== */}
+        {/* TAB 1: PERSONALIZED RECOMMENDATIONS                                */}
+        {/* ================================================================== */}
+        {activeTab === "recommendations" && (
+          <div>
+            {loadingRecs && <div className="loading-strip">Analyzing your movie preferences…</div>}
 
-        {loading && <div className="loading-strip">Rolling the film…</div>}
-        {error && <div className="error-msg">{error}</div>}
+            {!loadingRecs && recData && (
+              <>
+                {/* ── Situation 1: Locked (< 3 ratings) ── */}
+                {recData.status === "locked" && (
+                  <div>
+                    <div
+                      style={{
+                        background: "var(--surface)",
+                        border: "1px solid var(--gold-dim)",
+                        borderRadius: "var(--radius)",
+                        padding: "28px 32px",
+                        marginBottom: 36,
+                        boxShadow: "0 12px 30px -10px rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                        <span style={{ fontSize: 28 }}>🔒</span>
+                        <div>
+                          <span className="genre-tag" style={{ background: "rgba(227,179,65,0.15)", color: "var(--gold)", border: "1px solid var(--gold-dim)" }}>
+                            {recData.badge}
+                          </span>
+                          <h2 style={{ fontSize: 24, margin: "6px 0 0", fontFamily: "var(--font-display)" }}>
+                            Unlock Your Personalized Recommendations
+                          </h2>
+                        </div>
+                      </div>
 
-        {!loading && !error && movies.length === 0 && (
-          <div className="empty-state">
-            <h3>Nothing here yet</h3>
-            <p>
-              {query || genre
-                ? "No movies match that search. Try a different title or genre."
-                : "The admin hasn't added any movies to the showcase yet."}
-            </p>
+                      <p style={{ color: "var(--text-muted)", fontSize: 15, lineHeight: 1.6, margin: "0 0 20px" }}>
+                        {recData.message} Rate at least <strong>3 movies</strong> so our system can learn your film tastes and generate custom recommendations for you.
+                      </p>
+
+                      {/* Rating Progress Bar */}
+                      <div style={{ maxWidth: 440 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontFamily: "var(--font-mono)", color: "var(--text-muted)", marginBottom: 6 }}>
+                          <span>Progress:</span>
+                          <span style={{ color: "var(--gold)", fontWeight: 700 }}>
+                            {recData.user_rating_count} / {recData.required_ratings} Movies Rated
+                          </span>
+                        </div>
+                        <div style={{ height: 8, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}>
+                          <div
+                            style={{
+                              width: `${Math.min(100, (recData.user_rating_count / recData.required_ratings) * 100)}%`,
+                              height: "100%",
+                              background: "linear-gradient(90deg, var(--gold-dim), var(--gold))",
+                              borderRadius: 4,
+                              transition: "width 0.4s ease",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick-Rate Section */}
+                    <div>
+                      <div className="section-label">⭐ Quick-Rate Showcase Movies To Unlock ({recData.user_rating_count}/3 Rated)</div>
+                      {quickRateMsg && <div className="success-msg" style={{ marginBottom: 16 }}>{quickRateMsg}</div>}
+                      
+                      <p style={{ color: "var(--text-muted)", fontSize: 14, marginBottom: 20 }}>
+                        Click a star rating on any film below to submit your score:
+                      </p>
+
+                      <QuickRateGrid onRate={submitQuickRating} />
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Situation 2 & 3: Unlocked (Content-Based or Hybrid) ── */}
+                {recData.status === "unlocked" && (
+                  <div>
+                    {/* Algorithm Status Banner */}
+                    <div
+                      style={{
+                        background: recData.recommendation_type === "hybrid" ? "rgba(106,176,232,0.08)" : "rgba(227,179,65,0.08)",
+                        border: `1px solid ${recData.recommendation_type === "hybrid" ? "rgba(106,176,232,0.3)" : "var(--gold-dim)"}`,
+                        borderRadius: "var(--radius)",
+                        padding: "20px 24px",
+                        marginBottom: 32,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 16,
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: recData.recommendation_type === "hybrid" ? "#6ab0e3" : "var(--gold)", marginBottom: 4 }}>
+                          Recommendation Engine Active
+                        </div>
+                        <h2 style={{ fontSize: 22, margin: 0, fontFamily: "var(--font-display)", color: "var(--text)" }}>
+                          {recData.badge}
+                        </h2>
+                        <p style={{ fontSize: 13.5, color: "var(--text-muted)", margin: "4px 0 0" }}>
+                          {recData.message}
+                        </p>
+                      </div>
+
+                      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "6px 14px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)" }}>
+                        {recData.user_rating_count} Movies Rated by You
+                      </div>
+                    </div>
+
+                    {/* Movie Grid */}
+                    {recData.movies.length === 0 ? (
+                      <div className="empty-state">
+                        <h3>No unrated recommendations available right now</h3>
+                        <p>You have rated most available movies! Explore the full catalog to rate more films.</p>
+                      </div>
+                    ) : (
+                      <div className="movie-grid">
+                        {recData.movies.map((m) => (
+                          <MovieCard key={m.id} movie={m} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
-        {!loading && movies.length > 0 && (
-          <div className="movie-grid">
-            {movies.map((m) => (
-              <MovieCard key={m.id} movie={m} />
-            ))}
+        {/* ================================================================== */}
+        {/* TAB 2: OPTIONAL ADMIN SHOWCASE VIEW                                */}
+        {/* ================================================================== */}
+        {activeTab === "admin_showcase" && (
+          <div>
+            <div style={{ marginBottom: 24 }}>
+              <div className="hero-eyebrow" style={{ fontSize: 11, marginBottom: 4 }}>
+                Curated Showcase &middot; Admin Picks
+              </div>
+              <h2 style={{ fontSize: 28, margin: "0 0 12px", fontFamily: "var(--font-display)" }}>
+                Admin Curated Movies
+              </h2>
+              <p style={{ color: "var(--text-muted)", fontSize: 14, margin: "0 0 20px" }}>
+                Browse the complete list of films hand-picked, rated, and reviewed by the admin.
+              </p>
+
+              <SearchBar
+                query={query}
+                onQueryChange={setQuery}
+                genre={genre}
+                onGenreChange={setGenre}
+                genres={genres}
+                sort={sort}
+                onSortChange={setSort}
+              />
+            </div>
+
+            {loadingShowcase && <div className="loading-strip">Loading showcase movies…</div>}
+
+            {!loadingShowcase && movies.length === 0 && (
+              <div className="empty-state">
+                <h3>No movies match your filter</h3>
+                <p>Try resetting your search query or genre filter.</p>
+              </div>
+            )}
+
+            {!loadingShowcase && movies.length > 0 && (
+              <div className="movie-grid">
+                {movies.map((m) => (
+                  <MovieCard key={m.id} movie={m} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -471,14 +698,103 @@ function ShowcasePage() {
   );
 }
 
+/* Helper: Quick-Rate Grid Component for locked state */
+function QuickRateGrid({ onRate }) {
+  const [showcaseMovies, setShowcaseMovies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get("/movies")
+      .then((res) => {
+        const list = res.data || [];
+        // Shuffle randomly and take top 5 movies
+        const shuffled = [...list].sort(() => 0.5 - Math.random());
+        setShowcaseMovies(shuffled.slice(0, 5));
+      })
+      .catch(() => setShowcaseMovies([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="loading-strip">Loading 5 random top movies to rate…</div>;
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
+      {showcaseMovies.map((m) => (
+        <div
+          key={m.id}
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius)",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div style={{ display: "flex", gap: 14, padding: 14, borderBottom: "1px solid var(--border)" }}>
+            <img
+              src={m.poster_url}
+              alt={m.title}
+              style={{ width: 64, height: 96, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+            />
+            <div>
+              <Link to={`/movies/${m.id}`} style={{ fontWeight: 700, color: "var(--text)", textDecoration: "none", fontSize: 15 }}>
+                {m.title}
+              </Link>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                {m.release_date?.slice(0, 4)} {m.runtime ? `· ${m.runtime}m` : ""}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--gold)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
+                Admin ★ {m.admin_rating?.toFixed(1)}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: "12px 14px", background: "var(--bg-alt)" }}>
+            <div style={{ fontSize: 11, color: "var(--text-faint)", fontFamily: "var(--font-mono)", marginBottom: 8 }}>
+              Select your rating (1 - 10):
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
+              {[2, 4, 6, 8, 10].map((score) => (
+                <button
+                  key={score}
+                  type="button"
+                  onClick={() => onRate(m.id, score)}
+                  style={{
+                    padding: "6px 0",
+                    fontSize: 12,
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 700,
+                    background: "var(--surface)",
+                    border: "1px solid var(--gold-dim)",
+                    color: "var(--gold)",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "background 0.15s ease",
+                  }}
+                  title={`Rate ${score}/10`}
+                >
+                  ★ {score}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 /* ================================================================== */
-/*  Home — routes between landing and showcase based on auth state     */
+/*  Home — routes between landing and LoggedInHomePage                 */
 /* ================================================================== */
 export default function Home() {
   const { user, loading } = useAuth();
 
-  // While auth is resolving show nothing (avoids flash of landing page for logged-in users)
   if (loading) return <div className="loading-strip" style={{ paddingTop: 80 }}>Loading…</div>;
 
-  return user ? <ShowcasePage /> : <LandingPage />;
+  return user ? <LoggedInHomePage /> : <LandingPage />;
 }
+
