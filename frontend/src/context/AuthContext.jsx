@@ -8,7 +8,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    // sessionStorage is per-tab — each tab holds its own independent session
+    const token = sessionStorage.getItem("access_token");
     if (!token) {
       setLoading(false);
       return;
@@ -17,7 +18,7 @@ export function AuthProvider({ children }) {
       .get("/auth/me")
       .then((res) => setUser(res.data))
       .catch(() => {
-        localStorage.removeItem("access_token");
+        sessionStorage.removeItem("access_token");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -29,7 +30,7 @@ export function AuthProvider({ children }) {
     const res = await api.post("/auth/login", form, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
-    localStorage.setItem("access_token", res.data.access_token);
+    sessionStorage.setItem("access_token", res.data.access_token);
     setUser(res.data.user);
     return res.data.user;
   }
@@ -40,7 +41,8 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    localStorage.removeItem("access_token");
+    sessionStorage.removeItem("access_token");
+    localStorage.removeItem("access_token"); // clear any stale legacy token
     setUser(null);
   }
 
