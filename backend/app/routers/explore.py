@@ -11,7 +11,40 @@ from app.tmdb import discover_by_genre, get_movie_details, poster_url, search_mo
 
 router = APIRouter(prefix="/api/explore", tags=["explore"])
 
-# We return a richer dict on the detail endpoint so we define it inline.
+
+def _fmt(m: dict) -> dict:
+    """Shared helper: shape a raw TMDB result dict into our response format."""
+    return {
+        "tmdb_id": m["id"],
+        "title": m.get("title", "Untitled"),
+        "overview": m.get("overview"),
+        "release_date": m.get("release_date"),
+        "poster_path": m.get("poster_path"),
+        "backdrop_path": m.get("backdrop_path"),
+        "tmdb_rating": m.get("vote_average"),
+        "vote_count": m.get("vote_count", 0),
+        "poster_url": poster_url(m.get("poster_path")),
+        "genres": None,
+        "runtime": None,
+    }
+
+
+@router.get("/suggest")
+def explore_suggest(
+    q: str = Query(..., min_length=1, description="Partial or full movie title"),
+):
+    """
+    Return top-5 suggestions sorted by TMDB vote_count (most-rated first).
+    Handles minor typos because TMDB's own fuzzy matcher covers them.
+    Used for the live autocomplete dropdown.
+    """
+    data = search_movies(q, page=1)
+    results = data.get("results", [])
+
+    # Sort by vote_count descending — most well-known film surfaces first.
+    results.sort(key=lambda m: m.get("vote_count", 0), reverse=True)
+
+    return [_fmt(m) for m in results[:5]]
 
 
 @router.get("/search")
@@ -29,23 +62,12 @@ def explore_search(
     else:
         data = discover_by_genre(genre_id, page=page)
 
-    results = []
-    for m in data.get("results", []):
-        results.append(
-            {
-                "tmdb_id": m["id"],
-                "title": m.get("title", "Untitled"),
-                "overview": m.get("overview"),
-                "release_date": m.get("release_date"),
-                "poster_path": m.get("poster_path"),
-                "backdrop_path": m.get("backdrop_path"),
-                "tmdb_rating": m.get("vote_average"),
-                "poster_url": poster_url(m.get("poster_path")),
-                "genres": None,
-                "runtime": None,
-            }
-        )
-    return {"results": results, "total_results": data.get("total_results", 0), "total_pages": data.get("total_pages", 1)}
+    results = [_fmt(m) for m in data.get("results", [])]
+    return {
+        "results": results,
+        "total_results": data.get("total_results", 0),
+        "total_pages": data.get("total_pages", 1),
+    }
 
 
 @router.get("/movie/{tmdb_id}")
