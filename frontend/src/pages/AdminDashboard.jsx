@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 
 /* ------------------------------------------------------------------ */
@@ -408,10 +408,285 @@ function UsersTab() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Sub-component: ML Evaluation tab                                    */
+/* ------------------------------------------------------------------ */
+const MODEL_META = [
+  { key: "content_based", label: "Content-Based", color: "var(--gold)", bg: "rgba(227,179,65,0.10)", icon: "🎭" },
+  { key: "collaborative", label: "Collaborative", color: "#6ab0e3", bg: "rgba(106,176,232,0.10)", icon: "👥" },
+  { key: "hybrid",        label: "Hybrid",        color: "#c97ee8", bg: "rgba(201,126,232,0.10)", icon: "🚀" },
+];
+
+const METRIC_COLS = [
+  { key: "precision@5",  label: "Precision@5",  desc: "Hit rate in top 5" },
+  { key: "recall@5",    label: "Recall@5",    desc: "Coverage in top 5" },
+  { key: "precision@10", label: "Precision@10", desc: "Hit rate in top 10" },
+  { key: "recall@10",   label: "Recall@10",   desc: "Coverage in top 10" },
+  { key: "mae",          label: "MAE",          desc: "Mean Absolute Error (CF only)" },
+  { key: "rmse",         label: "RMSE",         desc: "Root Mean Sq. Error (CF only)" },
+];
+
+function MetricBar({ value, max, color }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  return (
+    <div style={{ flex: 1, height: 6, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
+      <div
+        style={{
+          width: `${pct}%`,
+          height: "100%",
+          background: color,
+          borderRadius: 3,
+          transition: "width 0.8s cubic-bezier(0.34,1.56,0.64,1)",
+        }}
+      />
+    </div>
+  );
+}
+
+function MLEvaluationTab() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+    setLoading(true);
+    api
+      .get("/admin/ml-evaluation")
+      .then((res) => setData(res.data))
+      .catch(() => setError("Could not load ML evaluation data."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  function refresh() {
+    hasFetched.current = false;
+    setData(null);
+    setLoading(true);
+    setError("");
+    api
+      .get("/admin/ml-evaluation")
+      .then((res) => setData(res.data))
+      .catch(() => setError("Could not load ML evaluation data."))
+      .finally(() => setLoading(false));
+  }
+
+  if (loading) return <div className="loading-strip">Running ML evaluation… this may take a moment.</div>;
+  if (error) return <div className="error-msg">{error}</div>;
+  if (!data) return null;
+
+  const isInsufficient = data.status === "insufficient_data";
+
+  // For bar chart normalisation per metric column
+  function maxForMetric(metricKey) {
+    if (!data.models) return 1;
+    const vals = MODEL_META.map((m) => data.models[m.key]?.[metricKey]).filter((v) => v != null);
+    return vals.length ? Math.max(...vals) : 1;
+  }
+
+  return (
+    <div>
+      {/* Header row */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", color: "var(--gold)", marginBottom: 6 }}>
+            🔬 ML Model Evaluation · Leave-One-Out Cross-Validation
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", maxWidth: 620 }}>
+            {data.message}
+          </p>
+          <div style={{ display: "flex", gap: 20, marginTop: 10, flexWrap: "wrap" }}>
+            {[
+              { label: "Users Evaluated", value: data.total_users_evaluated },
+              { label: "Movies in Catalog", value: data.total_movies },
+              { label: "Total Ratings", value: data.total_ratings },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-faint)" }}>
+                <span style={{ color: "var(--text-muted)" }}>{label}: </span>
+                <strong style={{ color: "var(--text)" }}>{value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+        <button className="btn" onClick={refresh} style={{ fontSize: 12, padding: "8px 16px" }}>
+          ↻ Re-evaluate
+        </button>
+      </div>
+
+      {isInsufficient ? (
+        <div
+          style={{
+            background: "rgba(227,179,65,0.07)",
+            border: "1px solid var(--gold-dim)",
+            borderRadius: "var(--radius)",
+            padding: "28px 32px",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+          <h3 style={{ fontFamily: "var(--font-display)", margin: "0 0 8px", color: "var(--text)" }}>Not Enough Data Yet</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, maxWidth: 480, margin: "0 auto" }}>
+            Leave-one-out evaluation requires at least <strong>2 users</strong> each with{" "}
+            <strong>3+ ratings</strong> and at least <strong>1 rating ≥ 7</strong>.{" "}
+            Add more movies and encourage audience members to rate them.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Model comparison table */}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: "10px 14px", textAlign: "left", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: "var(--text-faint)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>
+                    Model
+                  </th>
+                  {METRIC_COLS.map((col) => (
+                    <th
+                      key={col.key}
+                      title={col.desc}
+                      style={{ padding: "10px 14px", textAlign: "right", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: "var(--text-faint)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", cursor: "help" }}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {MODEL_META.map((model) => {
+                  const metrics = data.models[model.key] || {};
+                  return (
+                    <tr key={model.key} style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                      <td style={{ padding: "14px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              background: model.bg,
+                              border: `1px solid ${model.color}40`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 16,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {model.icon}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: model.color, fontSize: 13 }}>{model.label}</div>
+                            <div style={{ fontSize: 11, color: "var(--text-faint)", fontFamily: "var(--font-mono)" }}>{model.key.replace(/_/g, "-")}</div>
+                          </div>
+                        </div>
+                      </td>
+                      {METRIC_COLS.map((col) => {
+                        const val = metrics[col.key];
+                        const isError = col.key === "mae" || col.key === "rmse";
+                        const cfOnly = isError && model.key !== "collaborative";
+                        return (
+                          <td key={col.key} style={{ padding: "14px 14px", textAlign: "right" }}>
+                            {cfOnly ? (
+                              <span style={{ color: "var(--text-faint)", fontSize: 12 }}>—</span>
+                            ) : val == null ? (
+                              <span style={{ color: "var(--text-faint)", fontSize: 12 }}>N/A</span>
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                <span
+                                  style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontWeight: 700,
+                                    fontSize: 14,
+                                    color: isError
+                                      ? val <= 1 ? "var(--gold)" : val <= 2 ? "#6ab0e3" : "var(--red)"
+                                      : val >= 0.5 ? "var(--gold)" : val >= 0.2 ? "#6ab0e3" : "var(--text-muted)",
+                                  }}
+                                >
+                                  {isError ? val.toFixed(3) : (val * 100).toFixed(1) + "%"}
+                                </span>
+                                <div style={{ width: 80 }}>
+                                  <MetricBar
+                                    value={val}
+                                    max={isError ? Math.max(maxForMetric(col.key), 1) : 1}
+                                    color={model.color}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Metric legend */}
+          <div
+            style={{
+              marginTop: 24,
+              padding: "16px 20px",
+              background: "var(--surface)",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "1px", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 10 }}>
+              Metric Definitions
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "8px 24px" }}>
+              {METRIC_COLS.map((col) => (
+                <div key={col.key} style={{ fontSize: 12 }}>
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)", fontWeight: 600 }}>{col.label}:</span>{" "}
+                  <span style={{ color: "var(--text-muted)" }}>{col.desc}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 12 }}>
+                <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)", fontWeight: 600 }}>Method:</span>{" "}
+                <span style={{ color: "var(--text-muted)" }}>Leave-one-out — each user's highest-rated film is held out as the relevant item, then we check if each model recommends it in its top-K results.</span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main AdminDashboard — tabbed layout                                 */
 /* ------------------------------------------------------------------ */
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("movies");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const VALID_TABS = ["movies", "users", "ml_eval"];
+
+  const [activeTab, setActiveTabState] = useState(() => {
+    const tabFromUrl = searchParams.get("tab");
+    if (VALID_TABS.includes(tabFromUrl)) return tabFromUrl;
+    const tabFromStorage = localStorage.getItem("admin_active_tab");
+    if (VALID_TABS.includes(tabFromStorage)) return tabFromStorage;
+    return "movies";
+  });
+
+  function handleTabChange(tabId) {
+    setActiveTabState(tabId);
+    setSearchParams({ tab: tabId }, { replace: true });
+    localStorage.setItem("admin_active_tab", tabId);
+  }
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab");
+    if (tabFromUrl && VALID_TABS.includes(tabFromUrl)) {
+      setActiveTabState(tabFromUrl);
+      localStorage.setItem("admin_active_tab", tabFromUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const [stats, setStats] = useState({ users: 0, movies: 0, contributors: 0, ratings: 0 });
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -441,8 +716,9 @@ export default function AdminDashboard() {
 
 
   const tabs = [
-    { id: "movies", label: `🎬 Admin Section (${stats.movies})` },
-    { id: "users", label: `👥 Users (${stats.users})` },
+    { id: "movies",  label: `🎬 Admin Section (${stats.movies})` },
+    { id: "users",   label: `👥 Users (${stats.users})` },
+    { id: "ml_eval", label: "🔬 ML Evaluation" },
   ];
 
   return (
@@ -626,7 +902,7 @@ export default function AdminDashboard() {
           <button
             key={tab.id}
             id={`admin-tab-${tab.id}`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             style={{
               background: "none",
               border: "none",
@@ -646,8 +922,9 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {activeTab === "movies" && <MoviesTab />}
-      {activeTab === "users" && <UsersTab />}
+      {activeTab === "movies"  && <MoviesTab />}
+      {activeTab === "users"   && <UsersTab />}
+      {activeTab === "ml_eval" && <MLEvaluationTab />}
     </div>
   );
 }

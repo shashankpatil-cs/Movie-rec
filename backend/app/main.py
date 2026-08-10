@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import RoleEnum, User
-from app.routers import admin, auth, explore, movies, ratings, recommendations
+from app.routers import admin, auth, explore, movies, ratings, recommendations, evaluation
 from app.security import hash_password
 
 app = FastAPI(title="Personal Movie Showcase API", version="1.0.0")
@@ -23,6 +23,7 @@ app.include_router(ratings.router)
 app.include_router(admin.router)
 app.include_router(explore.router)
 app.include_router(recommendations.router)
+app.include_router(evaluation.router)
 
 
 

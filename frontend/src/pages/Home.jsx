@@ -380,7 +380,10 @@ function LandingPage() {
 /*  LoggedInHomePage — Recommendation Hub + Optional Admin Showcase     */
 /* ================================================================== */
 function LoggedInHomePage() {
-  const [activeTab, setActiveTab] = useState("admin_showcase"); // Showcase by default, recommendations as option
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
+  const [activeTab, setActiveTab] = useState("admin_showcase");
   const [recData, setRecData] = useState(null);
   const [loadingRecs, setLoadingRecs] = useState(true);
 
@@ -393,8 +396,9 @@ function LoggedInHomePage() {
   const [loadingShowcase, setLoadingShowcase] = useState(false);
   const [quickRateMsg, setQuickRateMsg] = useState("");
 
-  // Load recommendations
+  // Load recommendations (only for regular audience users, not admins)
   function fetchRecommendations() {
+    if (isAdmin) return;
     setLoadingRecs(true);
     api
       .get("/recommendations")
@@ -404,8 +408,11 @@ function LoggedInHomePage() {
   }
 
   useEffect(() => {
-    fetchRecommendations();
-  }, []);
+    if (!isAdmin) {
+      fetchRecommendations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
 
   // Load admin showcase genres
   useEffect(() => {
@@ -441,12 +448,11 @@ function LoggedInHomePage() {
       await api.post(`/movies/${movieId}/rate`, { rating: ratingScore });
       setQuickRateMsg("★ Rating submitted successfully!");
       setTimeout(() => setQuickRateMsg(""), 3500);
-      fetchRecommendations();
+      if (!isAdmin) fetchRecommendations();
     } catch (err) {
       setQuickRateMsg(err?.response?.data?.detail || "Could not submit rating.");
     }
   }
-
 
   return (
     <>
@@ -469,7 +475,7 @@ function LoggedInHomePage() {
               marginBottom: 8,
             }}
           >
-            Personalized Cinema Hub
+            {isAdmin ? "Admin Operations · Control & Monitoring" : "Personalized Cinema Hub"}
           </div>
 
           <h1
@@ -481,11 +487,19 @@ function LoggedInHomePage() {
               color: "var(--text)",
             }}
           >
-            Welcome to your <span style={{ color: "var(--gold)" }}>Movie Hub</span>
+            {isAdmin ? (
+              <>
+                Showcase <span style={{ color: "var(--gold)" }}>Monitor &amp; Maintain</span>
+              </>
+            ) : (
+              <>
+                Welcome to your <span style={{ color: "var(--gold)" }}>Movie Hub</span>
+              </>
+            )}
           </h1>
 
-          {/* Mode Switcher Buttons */}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {/* Mode Switcher / Admin Controls */}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <button
               onClick={() => setActiveTab("admin_showcase")}
               className={`pill-btn ${activeTab === "admin_showcase" ? "solid" : ""}`}
@@ -500,19 +514,54 @@ function LoggedInHomePage() {
               <span>🎬 Movie Showcase</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab("recommendations")}
-              className={`pill-btn ${activeTab === "recommendations" ? "solid" : ""}`}
-              style={{
-                fontSize: 14,
-                padding: "10px 22px",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span>✨ AI Recommendation</span>
-            </button>
+            {!isAdmin && (
+              <button
+                onClick={() => setActiveTab("recommendations")}
+                className={`pill-btn ${activeTab === "recommendations" ? "solid" : ""}`}
+                style={{
+                  fontSize: 14,
+                  padding: "10px 22px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span>✨ AI Recommendation</span>
+              </button>
+            )}
+
+            {isAdmin && (
+              <>
+                <Link
+                  to="/admin"
+                  className="pill-btn"
+                  style={{
+                    fontSize: 14,
+                    padding: "10px 22px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span>⚙️ Admin Dashboard</span>
+                </Link>
+                <Link
+                  to="/admin/add"
+                  className="pill-btn solid"
+                  style={{
+                    fontSize: 14,
+                    padding: "10px 22px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span>+ Add Movie</span>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -520,9 +569,9 @@ function LoggedInHomePage() {
       {/* ── Main Content Container ── */}
       <div className="container" style={{ padding: "36px 24px 60px" }}>
         {/* ================================================================== */}
-        {/* TAB 1: PERSONALIZED RECOMMENDATIONS                                */}
+        {/* TAB 1: PERSONALIZED RECOMMENDATIONS (AUDIENCE ONLY)                 */}
         {/* ================================================================== */}
-        {activeTab === "recommendations" && (
+        {!isAdmin && activeTab === "recommendations" && (
           <div>
             {loadingRecs && <div className="loading-strip">Analyzing your movie preferences…</div>}
 
