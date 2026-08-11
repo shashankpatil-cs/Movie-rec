@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -195,6 +197,60 @@ def delete_user(
     db.delete(user)  # cascade="all, delete-orphan" on ratings handles cleanup
     db.commit()
     return None
+
+
+class AdminRatingOut(BaseModel):
+    """Flat projection used by the admin ratings view."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    username: str
+    movie_id: int
+    movie_title: str
+    poster_url: Optional[str] = None
+    rating: float
+    review: Optional[str] = None
+    created_at: datetime
+
+
+
+
+@router.get("/ratings", response_model=List[AdminRatingOut])
+def list_all_ratings(
+    movie_id: Optional[int] = Query(default=None),
+    user_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Admin-only: list every user rating, optionally filtered by movie or user."""
+    q = db.query(UserRating).join(User, UserRating.user_id == User.id).join(
+        Movie, UserRating.movie_id == Movie.id
+    )
+    if movie_id:
+        q = q.filter(UserRating.movie_id == movie_id)
+    if user_id:
+        q = q.filter(UserRating.user_id == user_id)
+
+    ratings = q.order_by(UserRating.created_at.desc()).all()
+
+    result = []
+    for r in ratings:
+        result.append(
+            AdminRatingOut(
+                id=r.id,
+                user_id=r.user_id,
+                username=r.user.username,
+                movie_id=r.movie_id,
+                movie_title=r.movie.title,
+                poster_url=poster_url(r.movie.poster_path),
+                rating=r.rating,
+                review=r.review,
+                created_at=r.created_at,
+            )
+        )
+    return result
 
 
 @router.delete("/ratings/{rating_id}", status_code=204)

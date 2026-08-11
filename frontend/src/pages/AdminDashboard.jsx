@@ -408,6 +408,368 @@ function UsersTab() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Sub-component: Ratings tab  (movie-grouped)                         */
+/* ------------------------------------------------------------------ */
+function RatingsTab() {
+  const [ratings, setRatings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [filter, setFilter] = useState("");
+  const [expandedMovies, setExpandedMovies] = useState(new Set());
+  const [expandedReview, setExpandedReview] = useState(null);
+
+  function load() {
+    setLoading(true);
+    api
+      .get("/admin/ratings")
+      .then((res) => setRatings(res.data))
+      .catch(() => setError("Couldn't load ratings."))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(load, []);
+
+  async function deleteRating(id) {
+    if (!window.confirm("Permanently delete this rating?")) return;
+    try {
+      await api.delete(`/admin/ratings/${id}`);
+      setSuccess("Rating deleted.");
+      setError("");
+      load();
+    } catch {
+      setError("Couldn't delete rating.");
+      setSuccess("");
+    }
+  }
+
+  function toggleMovie(movieId) {
+    setExpandedMovies((prev) => {
+      const next = new Set(prev);
+      if (next.has(movieId)) next.delete(movieId);
+      else next.add(movieId);
+      return next;
+    });
+  }
+
+  // Group ratings by movie
+  const movieMap = {};
+  for (const r of ratings) {
+    if (!movieMap[r.movie_id]) {
+      movieMap[r.movie_id] = {
+        movie_id: r.movie_id,
+        movie_title: r.movie_title,
+        poster_url: r.poster_url,
+        ratings: [],
+      };
+    }
+    movieMap[r.movie_id].ratings.push(r);
+  }
+  let movies = Object.values(movieMap);
+
+  // Filter by search term (movie title or username)
+  const q = filter.toLowerCase();
+  if (q) {
+    movies = movies
+      .map((m) => ({
+        ...m,
+        ratings: m.ratings.filter(
+          (r) =>
+            r.username.toLowerCase().includes(q) ||
+            m.movie_title.toLowerCase().includes(q)
+        ),
+      }))
+      .filter((m) => m.ratings.length > 0);
+  }
+
+  // Sort movies alphabetically
+  movies.sort((a, b) => a.movie_title.localeCompare(b.movie_title));
+
+  function avgRating(ratingsList) {
+    if (!ratingsList.length) return null;
+    return ratingsList.reduce((s, r) => s + r.rating, 0) / ratingsList.length;
+  }
+
+  function ratingColor(v) {
+    if (v >= 7) return "var(--gold)";
+    if (v >= 5) return "#6ab0e3";
+    return "var(--red)";
+  }
+
+  function Stars({ value }) {
+    const filled = Math.round(value / 2);
+    return (
+      <span style={{ color: "var(--gold)", letterSpacing: 1, fontSize: 12 }}>
+        {Array.from({ length: 5 }, (_, i) => (i < filled ? "★" : "☆")).join("")}
+      </span>
+    );
+  }
+
+  const totalRatings = ratings.length;
+
+  return (
+    <>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+        <p style={{ color: "var(--text-muted)", margin: 0, fontSize: 13, maxWidth: 520 }}>
+          Audience ratings grouped by movie — see every user who rated each film.
+        </p>
+        <input
+          type="text"
+          placeholder="Filter by movie or user…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{
+            background: "var(--bg-alt)",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            color: "var(--text)",
+            padding: "8px 14px",
+            fontSize: 13,
+            minWidth: 220,
+            outline: "none",
+          }}
+        />
+      </div>
+
+      {error && <div className="error-msg">{error}</div>}
+      {success && <div className="success-msg">{success}</div>}
+      {loading && <div className="loading-strip">Loading…</div>}
+
+      {!loading && movies.length === 0 && (
+        <div className="empty-state">
+          <h3>{filter ? "No matching results" : "No ratings yet"}</h3>
+          <p>{filter ? "Try a different search term." : "Users haven't rated any movies yet."}</p>
+        </div>
+      )}
+
+      {!loading && movies.length > 0 && (
+        <>
+          {/* Summary bar */}
+          <div
+            style={{
+              marginBottom: 16,
+              padding: "10px 14px",
+              background: "var(--surface)",
+              borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border)",
+              fontSize: 12,
+              color: "var(--text-faint)",
+              fontFamily: "var(--font-mono)",
+              display: "flex",
+              gap: 24,
+              flexWrap: "wrap",
+            }}
+          >
+            <span>Movies rated: <strong style={{ color: "var(--text)" }}>{movies.length}</strong></span>
+            <span>Total ratings: <strong style={{ color: "var(--gold)" }}>{movies.reduce((s, m) => s + m.ratings.length, 0)}</strong></span>
+            <span>Unique raters: <strong style={{ color: "var(--text)" }}>{new Set(ratings.map((r) => r.user_id)).size}</strong></span>
+          </div>
+
+          {/* Movie cards */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {movies.map((m) => {
+              const avg = avgRating(m.ratings);
+              const isOpen = expandedMovies.has(m.movie_id);
+              return (
+                <div
+                  key={m.movie_id}
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    overflow: "hidden",
+                    transition: "box-shadow 0.2s",
+                  }}
+                >
+                  {/* Movie header row — click to expand/collapse */}
+                  <div
+                    onClick={() => toggleMovie(m.movie_id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 14,
+                      padding: "14px 18px",
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    {/* Poster */}
+                    {m.poster_url ? (
+                      <img
+                        src={m.poster_url}
+                        alt=""
+                        style={{ width: 44, height: 62, objectFit: "cover", borderRadius: 4, flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{ width: 44, height: 62, borderRadius: 4, background: "var(--bg-alt)", flexShrink: 0 }} />
+                    )}
+
+                    {/* Title + avg */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {m.movie_title}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                        {avg != null && (
+                          <span
+                            style={{
+                              fontFamily: "var(--font-mono)",
+                              fontWeight: 700,
+                              fontSize: 18,
+                              color: ratingColor(avg),
+                            }}
+                          >
+                            {avg.toFixed(1)}
+                            <span style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 400, marginLeft: 2 }}>/10</span>
+                          </span>
+                        )}
+                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          {m.ratings.length} {m.ratings.length === 1 ? "rating" : "ratings"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Chevron */}
+                    <span
+                      style={{
+                        fontSize: 18,
+                        color: "var(--text-faint)",
+                        transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.25s ease",
+                        flexShrink: 0,
+                      }}
+                    >
+                      ▾
+                    </span>
+                  </div>
+
+                  {/* Expanded user ratings */}
+                  {isOpen && (
+                    <div style={{ borderTop: "1px solid var(--border)" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ background: "rgba(255,255,255,0.02)" }}>
+                            <th style={{ padding: "8px 18px", textAlign: "left", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.8px", textTransform: "uppercase", color: "var(--text-faint)", fontWeight: 500, borderBottom: "1px solid var(--border-soft)" }}>User</th>
+                            <th style={{ padding: "8px 14px", textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.8px", textTransform: "uppercase", color: "var(--text-faint)", fontWeight: 500, borderBottom: "1px solid var(--border-soft)" }}>Rating</th>
+                            <th style={{ padding: "8px 14px", textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.8px", textTransform: "uppercase", color: "var(--text-faint)", fontWeight: 500, borderBottom: "1px solid var(--border-soft)" }}>Stars</th>
+                            <th style={{ padding: "8px 14px", textAlign: "left", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.8px", textTransform: "uppercase", color: "var(--text-faint)", fontWeight: 500, borderBottom: "1px solid var(--border-soft)" }}>Date</th>
+                            <th style={{ padding: "8px 14px", borderBottom: "1px solid var(--border-soft)" }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {m.ratings.map((r) => (
+                            <>
+                              <tr
+                                key={r.id}
+                                style={{ borderBottom: "1px solid var(--border-soft)", cursor: r.review ? "pointer" : "default" }}
+                                onClick={() => r.review && setExpandedReview(expandedReview === r.id ? null : r.id)}
+                              >
+                                {/* User */}
+                                <td style={{ padding: "10px 18px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                                    <div
+                                      style={{
+                                        width: 28,
+                                        height: 28,
+                                        borderRadius: "50%",
+                                        background: "linear-gradient(135deg, #2a2f38, #3a4049)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        color: "var(--text-muted)",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      {r.username[0].toUpperCase()}
+                                    </div>
+                                    <span style={{ fontWeight: 500 }}>{r.username}</span>
+                                  </div>
+                                </td>
+
+                                {/* Score */}
+                                <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 16, color: ratingColor(r.rating) }}>
+                                    {r.rating.toFixed(1)}
+                                  </span>
+                                  <span style={{ color: "var(--text-faint)", fontSize: 11 }}>/10</span>
+                                </td>
+
+                                {/* Stars */}
+                                <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                                  <Stars value={r.rating} />
+                                </td>
+
+                                {/* Date */}
+                                <td style={{ padding: "10px 14px", color: "var(--text-faint)", fontFamily: "var(--font-mono)", fontSize: 11, whiteSpace: "nowrap" }}>
+                                  {new Date(r.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                                </td>
+
+                                {/* Actions */}
+                                <td style={{ padding: "10px 14px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    {r.review && (
+                                      <button
+                                        className="btn"
+                                        style={{ fontSize: 11, padding: "3px 9px" }}
+                                        onClick={(e) => { e.stopPropagation(); setExpandedReview(expandedReview === r.id ? null : r.id); }}
+                                      >
+                                        {expandedReview === r.id ? "Hide" : "Review"}
+                                      </button>
+                                    )}
+                                    <button
+                                      className="btn danger"
+                                      style={{ fontSize: 11, padding: "3px 9px" }}
+                                      onClick={(e) => { e.stopPropagation(); deleteRating(r.id); }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* Expandable review */}
+                              {expandedReview === r.id && r.review && (
+                                <tr key={`${r.id}-rev`}>
+                                  <td colSpan={5} style={{ padding: "0 18px 14px 55px" }}>
+                                    <div
+                                      style={{
+                                        background: "rgba(255,255,255,0.03)",
+                                        border: "1px solid var(--border)",
+                                        borderRadius: "var(--radius-sm)",
+                                        padding: "10px 14px",
+                                        fontSize: 13,
+                                        color: "var(--text-muted)",
+                                        lineHeight: 1.7,
+                                        fontStyle: "italic",
+                                      }}
+                                    >
+                                      &ldquo;{r.review}&rdquo;
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+
+
+/* ------------------------------------------------------------------ */
 /*  Sub-component: ML Evaluation tab                                    */
 /* ------------------------------------------------------------------ */
 const MODEL_META = [
@@ -662,7 +1024,7 @@ function MLEvaluationTab() {
 export default function AdminDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const VALID_TABS = ["movies", "users", "ml_eval"];
+  const VALID_TABS = ["movies", "users", "ratings", "ml_eval"];
 
   const [activeTab, setActiveTabState] = useState(() => {
     const tabFromUrl = searchParams.get("tab");
@@ -718,6 +1080,7 @@ export default function AdminDashboard() {
   const tabs = [
     { id: "movies",  label: `🎬 Admin Section (${stats.movies})` },
     { id: "users",   label: `👥 Users (${stats.users})` },
+    { id: "ratings", label: `⭐ Ratings (${stats.ratings})` },
     { id: "ml_eval", label: "🔬 ML Evaluation" },
   ];
 
@@ -924,6 +1287,7 @@ export default function AdminDashboard() {
 
       {activeTab === "movies"  && <MoviesTab />}
       {activeTab === "users"   && <UsersTab />}
+      {activeTab === "ratings" && <RatingsTab />}
       {activeTab === "ml_eval" && <MLEvaluationTab />}
     </div>
   );
