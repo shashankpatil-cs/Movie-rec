@@ -55,6 +55,8 @@ def list_movies(
 
     all_movies = query.all()
 
+    exact_matches = None  # initialise so sort guards below always have it in scope
+
     if q:
         q_clean = q.strip().lower()
         exact_matches = [m for m in all_movies if q_clean in m.title.lower()]
