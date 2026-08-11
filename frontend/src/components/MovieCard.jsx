@@ -70,7 +70,7 @@ export default function MovieCard({ movie }) {
             {isAudienceUnlocked ? (
               <>
                 <span className="dot" style={{ background: "var(--gold)" }} />
-                <span>Audience ★ {movie.average_user_rating.toFixed(1)} ({movie.user_rating_count})</span>
+                <span>Audience ★ {movie.average_user_rating?.toFixed(1)} ({movie.user_rating_count})</span>
               </>
             ) : (
               <span style={{ color: "var(--text-faint)" }}>

@@ -44,7 +44,7 @@ def _get_popular_titles_pool() -> List[str]:
         with _client() as client:
             titles = set()
             for endpoint in ["/movie/popular", "/movie/top_rated"]:
-                for p in range(1, 6):
+                for p in range(1, 3):
                     r = client.get(endpoint, params={"page": p}).json()
                     for m in r.get("results", []):
                         if m.get("title"):

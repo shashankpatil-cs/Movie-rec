@@ -125,8 +125,20 @@ def update_movie(
     db.commit()
     db.refresh(movie)
 
+    agg = (
+        db.query(func.avg(UserRating.rating), func.count(UserRating.id))
+        .filter(UserRating.movie_id == movie.id)
+        .first()
+    )
+    avg_rating, count = agg if agg else (None, 0)
+    count = count or 0
+    is_unlocked = count >= 3
+
     out = MovieOut.model_validate(movie)
     out.poster_url = poster_url(movie.poster_path)
+    out.user_rating_count = count
+    out.is_audience_unlocked = is_unlocked
+    out.average_user_rating = round(avg_rating, 2) if (avg_rating is not None and is_unlocked) else None
     return out
 
 
@@ -163,6 +175,7 @@ def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_adm
     result = []
     for u in users:
         row = stats_map.get(u.id)
+        avg = row.average_rating if row else None
         result.append(
             UserAdminOut(
                 id=u.id,
@@ -171,7 +184,7 @@ def list_users(db: Session = Depends(get_db), _admin: User = Depends(require_adm
                 role=u.role,
                 created_at=u.created_at,
                 rating_count=row.rating_count if row else 0,
-                average_rating=round(float(row.average_rating), 2) if row else None,
+                average_rating=round(float(avg), 2) if (avg is not None) else None,
             )
         )
     return result

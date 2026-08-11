@@ -390,7 +390,6 @@ function LoggedInHomePage() {
   // Admin showcase state
   const [movies, setMovies] = useState([]);
   const [genres, setGenres] = useState([]);
-  const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("");
   const [sort, setSort] = useState("newest");
   const [loadingShowcase, setLoadingShowcase] = useState(false);

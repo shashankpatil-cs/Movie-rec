@@ -125,12 +125,12 @@ function MoviesTab() {
                       }}
                     />
                   ) : (
-                    m.admin_rating.toFixed(1)
+                    m.admin_rating != null ? m.admin_rating.toFixed(1) : "—"
                   )}
                 </td>
                 <td>
                   {m.average_user_rating != null
-                    ? `${m.average_user_rating.toFixed(1)} (${m.user_rating_count})`
+                    ? `${m.average_user_rating?.toFixed(1)} (${m.user_rating_count})`
                     : "—"}
                 </td>
                 <td>

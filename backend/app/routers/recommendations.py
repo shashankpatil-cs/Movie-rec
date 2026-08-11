@@ -141,7 +141,7 @@ def get_recommendations(
             for other_uid, sim in user_similarities.items():
                 if m.id in user_item_matrix[other_uid]:
                     weighted_sum += sim * user_item_matrix[other_uid][m.id]
-                    sim_sum += sim
+                    sim_sum += abs(sim)
             if sim_sum > 0:
                 collab_scores[m.id] = weighted_sum / sim_sum
             else:
@@ -149,7 +149,9 @@ def get_recommendations(
 
         # Normalize content scores & collab scores to [0, 10] range
         content_scores_raw = {m.id: get_content_score(m) for m in candidate_movies}
-        max_c = max(content_scores_raw.values()) if content_scores_raw and max(content_scores_raw.values()) > 0 else 1.0
+        raw_vals = list(content_scores_raw.values())
+        max_val = max(raw_vals) if raw_vals else 0.0
+        max_c = max_val if max_val > 0 else 1.0
 
         hybrid_scored = []
         for m in candidate_movies:

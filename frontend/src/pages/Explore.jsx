@@ -304,7 +304,7 @@ function SmartSearchBar({ query, onQueryChange, onSearch }) {
                       border: `1px solid ${scoreColor(s.tmdb_rating)}40`,
                     }}
                   >
-                    {s.tmdb_rating.toFixed(1)}
+                    {s.tmdb_rating?.toFixed(1)}
                   </div>
                 )}
 

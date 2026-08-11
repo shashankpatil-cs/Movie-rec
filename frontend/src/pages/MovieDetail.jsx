@@ -321,7 +321,7 @@ export default function MovieDetail() {
               fontSize: 20,
             }}
           >
-            ★ {movie.average_user_rating.toFixed(1)}
+            ★ {movie.average_user_rating?.toFixed(1)}
           </div>
         ) : (
           <div
