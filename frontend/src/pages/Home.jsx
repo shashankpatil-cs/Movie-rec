@@ -395,6 +395,7 @@ function LoggedInHomePage() {
   const [sort, setSort] = useState("newest");
   const [loadingShowcase, setLoadingShowcase] = useState(false);
   const [quickRateMsg, setQuickRateMsg] = useState("");
+  const [ratedIds, setRatedIds] = useState(new Set());
 
   // Load recommendations (only for regular audience users, not admins)
   function fetchRecommendations() {
@@ -422,6 +423,15 @@ function LoggedInHomePage() {
       .catch(() => setGenres([]));
   }, []);
 
+  // Fetch which showcase movies the logged-in user has already rated
+  useEffect(() => {
+    if (isAdmin) return;
+    api
+      .get("/movies/my-rated-ids")
+      .then((res) => setRatedIds(new Set(res.data)))
+      .catch(() => setRatedIds(new Set()));
+  }, [isAdmin]);
+
   // Load admin showcase movies if activeTab === 'admin_showcase'
   useEffect(() => {
     if (activeTab !== "admin_showcase") return;
@@ -446,13 +456,21 @@ function LoggedInHomePage() {
   async function submitQuickRating(movieId, ratingScore) {
     try {
       await api.post(`/movies/${movieId}/rate`, { rating: ratingScore });
-      setQuickRateMsg("★ Rating submitted successfully!");
+      setQuickRateMsg("\u2605 Rating submitted successfully!");
       setTimeout(() => setQuickRateMsg(""), 3500);
-      if (!isAdmin) fetchRecommendations();
+      if (!isAdmin) {
+        fetchRecommendations();
+        api.get("/movies/my-rated-ids").then((res) => setRatedIds(new Set(res.data))).catch(() => {});
+      }
     } catch (err) {
       setQuickRateMsg(err?.response?.data?.detail || "Could not submit rating.");
     }
   }
+
+  // Split showcase: unrated movies first, already-rated at bottom
+  const unratedMovies = !isAdmin ? movies.filter((m) => !ratedIds.has(m.id)) : movies;
+  const ratedMovies = !isAdmin ? movies.filter((m) => ratedIds.has(m.id)) : [];
+  const allWatched = !isAdmin && movies.length > 0 && unratedMovies.length === 0;
 
   return (
     <>
@@ -734,11 +752,67 @@ function LoggedInHomePage() {
             )}
 
             {!loadingShowcase && movies.length > 0 && (
-              <div className="movie-grid">
-                {movies.map((m) => (
-                  <MovieCard key={m.id} movie={m} />
-                ))}
-              </div>
+              <>
+                {/* All-watched banner */}
+                {allWatched && (
+                  <div
+                    style={{
+                      background: "rgba(106,176,232,0.08)",
+                      border: "1px solid rgba(106,176,232,0.3)",
+                      borderRadius: "var(--radius)",
+                      padding: "16px 22px",
+                      marginBottom: 24,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <span style={{ fontSize: 22 }}>🎉</span>
+                    <div>
+                      <div style={{ fontWeight: 600, color: "var(--text)", fontSize: 15 }}>
+                        You've watched everything in the showcase!
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+                        All movies are shown below. Explore the TMDB catalog for more.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Unrated / all movies */}
+                <div className="movie-grid">
+                  {(allWatched ? movies : unratedMovies).map((m) => (
+                    <MovieCard key={m.id} movie={m} />
+                  ))}
+                </div>
+
+                {/* Already-watched section */}
+                {!allWatched && ratedMovies.length > 0 && (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        margin: "36px 0 18px",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        letterSpacing: "2px",
+                        textTransform: "uppercase",
+                        color: "var(--text-faint)",
+                      }}
+                    >
+                      ✅ Already Watched ({ratedMovies.length})
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                    </div>
+                    <div className="movie-grid" style={{ opacity: 0.55 }}>
+                      {ratedMovies.map((m) => (
+                        <MovieCard key={m.id} movie={m} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
         )}

@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
-from app.models import Movie, UserRating
+from app.models import Movie, User, UserRating
 from app.schemas import Genre, MovieDetailOut, MovieOut, UserRatingOut
 from app.tmdb import get_genres, poster_url
 
@@ -93,6 +94,16 @@ def list_movies(
         results.sort(key=lambda m: (m.average_user_rating or 0), reverse=True)
 
     return results
+
+
+@router.get("/my-rated-ids", response_model=List[int])
+def get_my_rated_movie_ids(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return IDs of showcase movies the current user has already rated."""
+    rows = db.query(UserRating.movie_id).filter(UserRating.user_id == current_user.id).all()
+    return [r.movie_id for r in rows]
 
 
 @router.get("/{movie_id}", response_model=MovieDetailOut)
