@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.models import RoleEnum, User
-from app.routers import admin, auth, evaluation, explore, movies, ratings, recommendations
+from app.routers import admin, auth, explore, movies, ratings
 from app.security import hash_password
 
 
@@ -48,8 +48,6 @@ app.include_router(movies.router)
 app.include_router(ratings.router)
 app.include_router(admin.router)
 app.include_router(explore.router)
-app.include_router(recommendations.router)
-app.include_router(evaluation.router)
 
 
 @app.get("/")
