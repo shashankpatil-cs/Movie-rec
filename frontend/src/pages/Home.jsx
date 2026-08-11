@@ -396,6 +396,7 @@ function LoggedInHomePage() {
   const [loadingShowcase, setLoadingShowcase] = useState(false);
   const [quickRateMsg, setQuickRateMsg] = useState("");
   const [ratedIds, setRatedIds] = useState(new Set());
+  const [viewMode, setViewMode] = useState("grid"); // "grid" | "small" | "list"
 
   // Load recommendations (only for regular audience users, not admins)
   function fetchRecommendations() {
@@ -437,7 +438,6 @@ function LoggedInHomePage() {
     if (activeTab !== "admin_showcase") return;
     setLoadingShowcase(true);
     const params = {};
-    if (query) params.q = query;
     if (genre) params.genre = genre;
     params.sort = sort;
 
@@ -450,7 +450,7 @@ function LoggedInHomePage() {
     }, 200);
 
     return () => clearTimeout(handle);
-  }, [activeTab, query, genre, sort]);
+  }, [activeTab, genre, sort]);
 
   // Quick rate handler for locked state
   async function submitQuickRating(movieId, ratingScore) {
@@ -731,15 +731,58 @@ function LoggedInHomePage() {
                 Browse the complete list of films hand-picked, rated, and reviewed by the admin.
               </p>
 
-              <SearchBar
-                query={query}
-                onQueryChange={setQuery}
-                genre={genre}
-                onGenreChange={setGenre}
-                genres={genres}
-                sort={sort}
-                onSortChange={setSort}
-              />
+              {/* Genres filter + View toggle row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+                <SearchBar
+                  genre={genre}
+                  onGenreChange={setGenre}
+                  genres={genres}
+                />
+
+                {/* View mode toggle */}
+                <div className="view-toggle" role="group" aria-label="View mode">
+                  <button
+                    className={`view-btn${viewMode === "grid" ? " active" : ""}`}
+                    onClick={() => setViewMode("grid")}
+                    title="Grid view"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <rect x="1" y="1" width="6" height="6" rx="1"/>
+                      <rect x="9" y="1" width="6" height="6" rx="1"/>
+                      <rect x="1" y="9" width="6" height="6" rx="1"/>
+                      <rect x="9" y="9" width="6" height="6" rx="1"/>
+                    </svg>
+                  </button>
+                  <button
+                    className={`view-btn${viewMode === "small" ? " active" : ""}`}
+                    onClick={() => setViewMode("small")}
+                    title="Small grid"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <rect x="1" y="1" width="4" height="4" rx="0.75"/>
+                      <rect x="6" y="1" width="4" height="4" rx="0.75"/>
+                      <rect x="11" y="1" width="4" height="4" rx="0.75"/>
+                      <rect x="1" y="6" width="4" height="4" rx="0.75"/>
+                      <rect x="6" y="6" width="4" height="4" rx="0.75"/>
+                      <rect x="11" y="6" width="4" height="4" rx="0.75"/>
+                      <rect x="1" y="11" width="4" height="4" rx="0.75"/>
+                      <rect x="6" y="11" width="4" height="4" rx="0.75"/>
+                      <rect x="11" y="11" width="4" height="4" rx="0.75"/>
+                    </svg>
+                  </button>
+                  <button
+                    className={`view-btn${viewMode === "list" ? " active" : ""}`}
+                    onClick={() => setViewMode("list")}
+                    title="List view"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                      <rect x="1" y="2" width="14" height="2.5" rx="1"/>
+                      <rect x="1" y="6.75" width="14" height="2.5" rx="1"/>
+                      <rect x="1" y="11.5" width="14" height="2.5" rx="1"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {loadingShowcase && <div className="loading-strip">Loading showcase movies…</div>}
@@ -780,7 +823,7 @@ function LoggedInHomePage() {
                 )}
 
                 {/* Unrated / all movies */}
-                <div className="movie-grid">
+                <div className={`movie-grid${viewMode === "small" ? " movie-grid--small" : viewMode === "list" ? " movie-grid--list" : ""}`}>
                   {(allWatched ? movies : unratedMovies).map((m) => (
                     <MovieCard key={m.id} movie={m} />
                   ))}
@@ -805,7 +848,7 @@ function LoggedInHomePage() {
                       ✅ Already Watched ({ratedMovies.length})
                       <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
                     </div>
-                    <div className="movie-grid" style={{ opacity: 0.55 }}>
+                    <div className={`movie-grid${viewMode === "small" ? " movie-grid--small" : viewMode === "list" ? " movie-grid--list" : ""}`} style={{ opacity: 0.55 }}>
                       {ratedMovies.map((m) => (
                         <MovieCard key={m.id} movie={m} />
                       ))}
