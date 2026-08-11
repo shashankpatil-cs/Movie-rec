@@ -7,6 +7,7 @@ from sqlalchemy import func
 from app.database import get_db
 from app.models import Movie, User, UserRating
 from app.routers.auth import get_current_user
+from app.tmdb import poster_url
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
@@ -189,7 +190,7 @@ def _format_movie(m: Movie, db: Session) -> dict:
         "admin_review": m.admin_review,
         "is_featured": m.is_featured,
         "created_at": m.created_at.isoformat() if m.created_at else None,
-        "poster_url": m.poster_url,
+        "poster_url": poster_url(m.poster_path),
         "genres": m.genres,
         "runtime": m.runtime,
         "average_user_rating": round(avg_rating, 1) if avg_rating is not None else None,
