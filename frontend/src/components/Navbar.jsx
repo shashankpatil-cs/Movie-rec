@@ -37,6 +37,10 @@ export default function Navbar() {
                 </NavLink>
               )}
 
+              <NavLink to="/recommender" className={({ isActive }) => (isActive ? "active" : "")}>
+                Recommender
+              </NavLink>
+
               {user.role === "admin" && (
                 <NavLink to="/admin" className={({ isActive }) => (isActive ? "active" : "")}>
                   Admin

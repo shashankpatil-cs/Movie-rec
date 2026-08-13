@@ -329,6 +329,37 @@ The Vite dev server automatically proxies all `/api/…` calls to
 
 ---
 
+---
+
+## CineLens Recommender (integrated feature)
+
+The CineLens MovieLens-1M recommender bake-off (item-based collaborative
+filtering vs. content-based vs. hybrid, plus a "find similar movies" tool)
+is integrated into this same app rather than run as a separate project:
+
+- **Backend:** its FastAPI routes live under `backend/app/cinelens/` and are
+  mounted on this same FastAPI app at `/api/cinelens/*` (see
+  `backend/app/main.py`). They run in the same `uvicorn` process on the
+  same port — no second server. Its dataset lives in `backend/data/ml-1m/`.
+  The `/api/cinelens/*` endpoints require the same login as the rest of the
+  site (reuses `get_current_user` — there's no separate CineLens account
+  system).
+- **Frontend:** its UI lives under `frontend/src/cinelens/` and is exposed
+  as the `/recommender` route in this same React app (see `src/App.jsx`),
+  gated behind the existing `RequireAuth` — so it's only reachable once
+  you're logged in, with **no second login screen**. Its stylesheet is
+  scoped under a `.cinelens-page` wrapper so it can't leak onto (or be
+  overridden by) the rest of the site's styling.
+- One extra frontend dependency was added for its chart: `recharts` (see
+  `frontend/package.json`). Run `npm install` in `frontend/` after pulling
+  this to fetch it — this was not able to be installed automatically in the
+  environment this integration was prepared in.
+
+Nothing about existing login/logout, routing, or either project's core
+functionality was changed beyond this wiring.
+
+---
+
 ## Deployment Notes
 
 | Topic | Detail |

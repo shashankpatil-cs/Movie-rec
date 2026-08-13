@@ -8,6 +8,7 @@ from app.database import Base, SessionLocal, engine
 from app.models import RoleEnum, User
 from app.routers import admin, auth, explore, movies, ratings
 from app.security import hash_password
+from app.cinelens.router import router as cinelens_router
 
 
 @asynccontextmanager
@@ -48,6 +49,7 @@ app.include_router(movies.router)
 app.include_router(ratings.router)
 app.include_router(admin.router)
 app.include_router(explore.router)
+app.include_router(cinelens_router)
 
 
 @app.get("/")

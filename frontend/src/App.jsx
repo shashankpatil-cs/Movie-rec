@@ -11,6 +11,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import MovieDetail from "./pages/MovieDetail";
 import Register from "./pages/Register";
+import CineLensPage from "./cinelens/CineLensPage";
 
 export default function App() {
   return (
@@ -47,6 +48,16 @@ export default function App() {
             element={
               <RequireAuth>
                 <ExploreMovieDetail />
+              </RequireAuth>
+            }
+          />
+
+          {/* Protected: logged-in users only — CineLens recommender feature */}
+          <Route
+            path="/recommender"
+            element={
+              <RequireAuth>
+                <CineLensPage />
               </RequireAuth>
             }
           />
