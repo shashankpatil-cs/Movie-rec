@@ -19,7 +19,7 @@ export default function CineLensPage() {
   const [cfMethod, setCfMethod] = useState("pearson");
   const [testSize, setTestSize] = useState(0.2);
   const [minCfRatings, setMinCfRatings] = useState(100);
-  const [userCount, setUserCount] = useState(50);
+  const [userCount, setUserCount] = useState(100);
 
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);

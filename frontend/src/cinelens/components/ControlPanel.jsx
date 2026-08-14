@@ -4,7 +4,7 @@ const METHODS = [
   { id: "kendall", label: "Kendall", sub: "rank corr · ~30s" },
 ];
 
-const USER_COUNTS = [50, 100, 150];
+const USER_COUNTS = [100, 250, 500, 750, 1000];
 
 export default function ControlPanel({
   users,

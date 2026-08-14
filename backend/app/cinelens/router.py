@@ -58,7 +58,7 @@ def methods():
 
 
 @router.get("/users", response_model=UsersResponse)
-def get_random_users(n: int = Query(50, ge=1, le=150), seed: int = Query(None)):
+def get_random_users(n: int = Query(100, ge=1, le=1000), seed: int = Query(None)):
     """Pick n random users from the active-user pool (>= 15 ratings so an 80/20 split is meaningful)."""
     if seed is None:
         seed = random.randint(0, 1_000_000)

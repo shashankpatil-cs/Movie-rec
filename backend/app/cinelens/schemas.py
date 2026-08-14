@@ -15,7 +15,7 @@ class UsersResponse(BaseModel):
 
 
 class CompareRequest(BaseModel):
-    user_ids: List[int] = Field(..., min_length=1, max_length=150)
+    user_ids: List[int] = Field(..., min_length=1, max_length=1000)
     cf_method: CfMethod = "pearson"
     k: int = 10
     alpha: float = 0.5  # hybrid blend weight: alpha * CF + (1 - alpha) * Content
