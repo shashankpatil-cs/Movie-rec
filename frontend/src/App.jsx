@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import MovieDetail from "./pages/MovieDetail";
 import Register from "./pages/Register";
 import CineLensPage from "./cinelens/CineLensPage";
+import RatingComparisonPage from "./pages/RatingComparisonPage";
 
 export default function App() {
   return (
@@ -61,6 +62,9 @@ export default function App() {
               </RequireAuth>
             }
           />
+
+          {/* Rating Prediction Model Comparison — public tool */}
+          <Route path="/rating-comparison" element={<RatingComparisonPage />} />
 
           {/* Protected: admin only */}
           <Route

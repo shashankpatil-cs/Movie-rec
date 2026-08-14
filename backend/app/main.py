@@ -9,6 +9,7 @@ from app.models import RoleEnum, User
 from app.routers import admin, auth, explore, movies, ratings
 from app.security import hash_password
 from app.cinelens.router import router as cinelens_router
+from app.rating_prediction.routes import router as rating_prediction_router
 
 
 @asynccontextmanager
@@ -50,6 +51,7 @@ app.include_router(ratings.router)
 app.include_router(admin.router)
 app.include_router(explore.router)
 app.include_router(cinelens_router)
+app.include_router(rating_prediction_router, prefix="/api/rating-prediction", tags=["Rating Prediction"])
 
 
 @app.get("/")
