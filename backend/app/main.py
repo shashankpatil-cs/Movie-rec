@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Personal Movie Showcase API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="CinePredict AI API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

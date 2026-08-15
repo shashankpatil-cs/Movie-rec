@@ -19,7 +19,7 @@ export default function Navbar() {
             <span />
             <span />
           </span>
-          LATE SHOW
+          CinePredict AI
         </NavLink>
 
         <nav className="nav-links">
@@ -28,6 +28,10 @@ export default function Navbar() {
             <>
               <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : "")}>
                 Showcase
+              </NavLink>
+
+              <NavLink to="/watched" className={({ isActive }) => (isActive ? "active" : "")}>
+                Watched
               </NavLink>
 
               {/* Explore: for regular users — admins have TMDB search in their panel */}

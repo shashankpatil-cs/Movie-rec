@@ -11,6 +11,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import MovieDetail from "./pages/MovieDetail";
 import Register from "./pages/Register";
+import WatchedList from "./pages/WatchedList";
 import CineLensPage from "./cinelens/CineLensPage";
 import RatingComparisonPage from "./pages/RatingComparisonPage";
 
@@ -28,6 +29,14 @@ export default function App() {
           <Route path="/register" element={<Register />} />
 
           {/* Protected: logged-in users only */}
+          <Route
+            path="/watched"
+            element={
+              <RequireAuth>
+                <WatchedList />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/movies/:id"
             element={
@@ -85,7 +94,7 @@ export default function App() {
           />
         </Routes>
       </main>
-      <footer className="footer">LATE SHOW &mdash; a personal film log &middot; powered by TMDB</footer>
+      <footer className="footer">Powered by SHANKS</footer>
     </AuthProvider>
   );
 }

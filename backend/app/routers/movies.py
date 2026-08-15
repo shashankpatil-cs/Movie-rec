@@ -43,7 +43,10 @@ def list_movies(
     q: Optional[str] = Query(default=None, description="Search by movie title"),
     genre: Optional[str] = Query(default=None, description="Filter by genre name, e.g. 'Action'"),
     featured_only: bool = Query(default=False),
-    sort: str = Query(default="newest", pattern="^(newest|admin_rating|title|user_rating)$"),
+    sort: str = Query(
+        default="newest",
+        pattern="^(newest|admin_rating|title|user_rating|runtime_desc|runtime_asc)$",
+    ),
     db: Session = Depends(get_db),
 ):
     query = db.query(Movie)
@@ -87,6 +90,10 @@ def list_movies(
         movies.sort(key=lambda m: m.admin_rating or 0, reverse=True)
     elif sort == "title" and not (q and not exact_matches):
         movies.sort(key=lambda m: m.title)
+    elif sort == "runtime_desc" and not (q and not exact_matches):
+        movies.sort(key=lambda m: m.runtime or 0, reverse=True)
+    elif sort == "runtime_asc" and not (q and not exact_matches):
+        movies.sort(key=lambda m: (m.runtime is None or m.runtime == 0, m.runtime or 0))
 
     results = [_to_movie_out(db, m) for m in movies]
 
@@ -104,6 +111,49 @@ def get_my_rated_movie_ids(
     """Return IDs of showcase movies the current user has already rated."""
     rows = db.query(UserRating.movie_id).filter(UserRating.user_id == current_user.id).all()
     return [r.movie_id for r in rows]
+
+
+@router.get("/my-ratings")
+def get_my_ratings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return a mapping of {movie_id: rating} for movies the current user has rated."""
+    rows = db.query(UserRating.movie_id, UserRating.rating).filter(UserRating.user_id == current_user.id).all()
+    return {r.movie_id: r.rating for r in rows}
+
+
+@router.get("/my-watched")
+def get_my_watched_list(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all showcase movies rated by the current user with rating and review details."""
+    ratings = (
+        db.query(UserRating, Movie)
+        .join(Movie, Movie.id == UserRating.movie_id)
+        .filter(UserRating.user_id == current_user.id)
+        .order_by(UserRating.updated_at.desc(), UserRating.created_at.desc())
+        .all()
+    )
+    results = []
+    for r, m in ratings:
+        results.append({
+            "id": m.id,
+            "tmdb_id": m.tmdb_id,
+            "title": m.title,
+            "overview": m.overview,
+            "release_date": m.release_date,
+            "poster_url": poster_url(m.poster_path),
+            "backdrop_path": m.backdrop_path,
+            "runtime": m.runtime,
+            "genres": m.genres,
+            "admin_rating": m.admin_rating,
+            "my_rating": r.rating,
+            "my_review": r.review,
+            "rated_at": r.updated_at or r.created_at,
+        })
+    return results
 
 
 @router.get("/{movie_id}", response_model=MovieDetailOut)

@@ -85,7 +85,7 @@ function LandingPage() {
               marginBottom: 14,
             }}
           >
-            Late Show &middot; A personal film log
+            CinePredict AI &middot; Intelligent Film Hub &amp; Prediction Lab
           </div>
 
           <h1
@@ -386,9 +386,11 @@ function LoggedInHomePage() {
   const [movies, setMovies] = useState([]);
   const [genres, setGenres] = useState([]);
   const [genre, setGenre] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState("newest");
   const [loadingShowcase, setLoadingShowcase] = useState(false);
-  const [ratedIds, setRatedIds] = useState(new Set());
+  const [myRatings, setMyRatings] = useState({});
+  const [filterTab, setFilterTab] = useState("all"); // "all" | "unrated"
   const [viewMode, setViewMode] = useState("grid"); // "grid" | "small" | "list"
 
   // Load showcase genres
@@ -401,16 +403,18 @@ function LoggedInHomePage() {
 
   // Fetch which showcase movies the logged-in user has already rated
   useEffect(() => {
+    if (!user) return;
     api
-      .get("/movies/my-rated-ids")
-      .then((res) => setRatedIds(new Set(res.data)))
-      .catch(() => setRatedIds(new Set()));
-  }, [isAdmin]);
+      .get("/movies/my-ratings")
+      .then((res) => setMyRatings(res.data || {}))
+      .catch(() => setMyRatings({}));
+  }, [user]);
 
-  // Load showcase movies
+  // Load showcase movies (with query, genre, sort)
   useEffect(() => {
     setLoadingShowcase(true);
     const params = {};
+    if (searchQuery.trim()) params.q = searchQuery.trim();
     if (genre) params.genre = genre;
     params.sort = sort;
 
@@ -420,15 +424,18 @@ function LoggedInHomePage() {
         .then((res) => setMovies(res.data))
         .catch(() => setMovies([]))
         .finally(() => setLoadingShowcase(false));
-    }, 200);
+    }, 250);
 
     return () => clearTimeout(handle);
-  }, [genre, sort]);
+  }, [searchQuery, genre, sort]);
 
-  // Split showcase: unrated movies first, already-rated at bottom
-  const unratedMovies = !isAdmin ? movies.filter((m) => !ratedIds.has(m.id)) : movies;
-  const ratedMovies = !isAdmin ? movies.filter((m) => ratedIds.has(m.id)) : [];
-  const allWatched = !isAdmin && movies.length > 0 && unratedMovies.length === 0;
+  const watchedCount = Object.keys(myRatings).length;
+  const unratedCount = movies.filter((m) => myRatings[m.id] == null).length;
+
+  const displayedMovies = movies.filter((m) => {
+    if (filterTab === "unrated") return myRatings[m.id] == null;
+    return true;
+  });
 
   return (
     <>
@@ -474,39 +481,57 @@ function LoggedInHomePage() {
             )}
           </h1>
 
-          {/* Admin Quick Action Controls */}
-          {isAdmin && (
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <Link
-                to="/admin"
-                className="pill-btn"
-                style={{
-                  fontSize: 14,
-                  padding: "10px 22px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  textDecoration: "none",
-                }}
-              >
-                <span>⚙️ Admin Dashboard</span>
-              </Link>
-              <Link
-                to="/admin/add"
-                className="pill-btn solid"
-                style={{
-                  fontSize: 14,
-                  padding: "10px 22px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  textDecoration: "none",
-                }}
-              >
-                <span>+ Add Movie</span>
-              </Link>
-            </div>
-          )}
+          {/* Quick Action Controls */}
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <Link
+              to="/watched"
+              className="pill-btn"
+              style={{
+                fontSize: 14,
+                padding: "10px 22px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                color: "var(--text)",
+              }}
+            >
+              <span>🍿 My Watched List ({watchedCount})</span>
+            </Link>
+
+            {isAdmin && (
+              <>
+                <Link
+                  to="/admin"
+                  className="pill-btn"
+                  style={{
+                    fontSize: 14,
+                    padding: "10px 22px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span>⚙️ Admin Dashboard</span>
+                </Link>
+                <Link
+                  to="/admin/add"
+                  className="pill-btn solid"
+                  style={{
+                    fontSize: 14,
+                    padding: "10px 22px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span>+ Add Movie</span>
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -524,13 +549,126 @@ function LoggedInHomePage() {
               Browse the complete list of films hand-picked, rated, and reviewed.
             </p>
 
-            {/* Genres filter + View toggle row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+            {/* Showcase Quick Tabs */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+              <button
+                className={`pill-btn${filterTab === "all" ? " solid" : ""}`}
+                onClick={() => setFilterTab("all")}
+                style={{ fontSize: 13, padding: "8px 18px" }}
+              >
+                🎬 All Showcase ({movies.length})
+              </button>
+              <button
+                className={`pill-btn${filterTab === "unrated" ? " solid" : ""}`}
+                onClick={() => setFilterTab("unrated")}
+                style={{ fontSize: 13, padding: "8px 18px" }}
+              >
+                ⏳ Unrated ({unratedCount})
+              </button>
+              <Link
+                to="/watched"
+                className="pill-btn"
+                style={{
+                  fontSize: 13,
+                  padding: "8px 18px",
+                  textDecoration: "none",
+                  color: "#34d399",
+                  borderColor: "rgba(52, 211, 153, 0.4)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span>🍿 My Watched List ({watchedCount})</span>
+                <span>→</span>
+              </Link>
+            </div>
+
+            {/* Search + Genres filter + Sort dropdown + View toggle row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+              {/* Small search bar for showcase movies only */}
+              <div style={{ position: "relative", minWidth: 180, flex: "1 1 180px", maxWidth: 260 }}>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    position: "absolute",
+                    left: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--text-muted)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search showcase…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "11px 30px 11px 34px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    color: "var(--text)",
+                    fontSize: 13.5,
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    style={{
+                      position: "absolute",
+                      right: 8,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      color: "var(--text-muted)",
+                      cursor: "pointer",
+                      padding: 4,
+                      fontSize: 15,
+                      lineHeight: 1,
+                    }}
+                    title="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
               <SearchBar
                 genre={genre}
                 onGenreChange={setGenre}
                 genres={genres}
               />
+
+              <select
+                className="select-genre"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+                title="Sort showcase movies"
+                aria-label="Sort showcase movies"
+                style={{ minWidth: 190 }}
+              >
+                <option value="newest">🕒 Newest Added</option>
+                <option value="runtime_desc">⏱️ Runtime: High to Low</option>
+                <option value="runtime_asc">⏱️ Runtime: Low to High</option>
+                <option value="title">🔤 Title (A–Z)</option>
+              </select>
 
               {/* View mode toggle */}
               <div className="view-toggle" role="group" aria-label="View mode">
@@ -580,75 +718,34 @@ function LoggedInHomePage() {
 
           {loadingShowcase && <div className="loading-strip">Loading showcase movies…</div>}
 
-          {!loadingShowcase && movies.length === 0 && (
-            <div className="empty-state">
-              <h3>No movies match your filter</h3>
-              <p>Try resetting your genre filter.</p>
+          {!loadingShowcase && displayedMovies.length === 0 && (
+            <div className="empty-state" style={{ padding: "48px 20px", textAlign: "center" }}>
+              <h3>No movies found</h3>
+              <p>
+                {searchQuery
+                  ? `No showcase movies match "${searchQuery}".`
+                  : filterTab === "unrated"
+                  ? "You have rated all movies matching this filter!"
+                  : "Try resetting your genre filter."}
+              </p>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="pill-btn"
+                  style={{ marginTop: 12, fontSize: 13 }}
+                >
+                  Clear search
+                </button>
+              )}
             </div>
           )}
 
-          {!loadingShowcase && movies.length > 0 && (
-            <>
-              {/* All-watched banner */}
-              {allWatched && (
-                <div
-                  style={{
-                    background: "rgba(106,176,232,0.08)",
-                    border: "1px solid rgba(106,176,232,0.3)",
-                    borderRadius: "var(--radius)",
-                    padding: "16px 22px",
-                    marginBottom: 24,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                  }}
-                >
-                  <span style={{ fontSize: 22 }}>🎉</span>
-                  <div>
-                    <div style={{ fontWeight: 600, color: "var(--text)", fontSize: 15 }}>
-                      You've watched everything in the showcase!
-                    </div>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
-                      All movies are shown below. Explore the TMDB catalog for more.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Unrated / all movies */}
-              <div className={`movie-grid${viewMode === "small" ? " movie-grid--small" : viewMode === "list" ? " movie-grid--list" : ""}`}>
-                {(allWatched ? movies : unratedMovies).map((m) => (
-                  <MovieCard key={m.id} movie={m} />
-                ))}
-              </div>
-
-              {/* Already-watched section */}
-              {!allWatched && ratedMovies.length > 0 && (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      margin: "36px 0 18px",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      letterSpacing: "2px",
-                      textTransform: "uppercase",
-                      color: "var(--text-faint)",
-                    }}
-                  >
-                    ✅ Already Watched ({ratedMovies.length})
-                    <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-                  </div>
-                  <div className={`movie-grid${viewMode === "small" ? " movie-grid--small" : viewMode === "list" ? " movie-grid--list" : ""}`} style={{ opacity: 0.55 }}>
-                    {ratedMovies.map((m) => (
-                      <MovieCard key={m.id} movie={m} />
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
+          {!loadingShowcase && displayedMovies.length > 0 && (
+            <div className={`movie-grid${viewMode === "small" ? " movie-grid--small" : viewMode === "list" ? " movie-grid--list" : ""}`}>
+              {displayedMovies.map((m) => (
+                <MovieCard key={m.id} movie={m} />
+              ))}
+            </div>
           )}
         </div>
       </div>
